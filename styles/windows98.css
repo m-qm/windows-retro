@@ -1,0 +1,391 @@
+/* Windows 98/XP Classic Theme */
+
+:root {
+  --win-bg: #008080; /* Classic teal desktop */
+  --win-gray: #c0c0c0; /* Window background */
+  --win-dark: #808080; /* Dark border */
+  --win-light: #ffffff; /* Light border */
+  --win-title-active-start: #000080;
+  --win-title-active-end: #1084d0;
+  --win-title-inactive-start: #808080;
+  --win-title-inactive-end: #b5b5b5;
+  --taskbar: #c0c0c0;
+  --start-green: #008000;
+  --win-button-bg: #c0c0c0;
+  --win-button-active-bg: #808080;
+  --win-text: #000000;
+  --win-text-inverse: #ffffff;
+  --win-selected-bg: #000080;
+  --win-selected-text: #ffffff;
+}
+
+/* Typography */
+body {
+  font-family: "MS Sans Serif", "Tahoma", "Arial", sans-serif;
+  font-size: 11px;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* Desktop Background */
+.desktop-bg {
+  width: 100vw;
+  height: 100vh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  background: url('/wallpapers/bliss.jpg') center/cover no-repeat fixed;
+  image-rendering: auto;
+}
+
+/* 3D Button Effect (Outset) */
+.win-button {
+  border-top: 2px solid var(--win-light);
+  border-left: 2px solid var(--win-light);
+  border-right: 2px solid var(--win-dark);
+  border-bottom: 2px solid var(--win-dark);
+  background: var(--win-button-bg);
+  color: var(--win-text);
+  padding: 2px 8px;
+  font-size: 11px;
+  font-family: "MS Sans Serif", "Tahoma", sans-serif;
+  cursor: pointer;
+  outline: none;
+  box-shadow: none;
+}
+
+.win-button:hover {
+  background: #d4d0c8;
+}
+
+.win-button:active,
+.win-button.pressed {
+  border-top: 2px solid var(--win-dark);
+  border-left: 2px solid var(--win-dark);
+  border-right: 2px solid var(--win-light);
+  border-bottom: 2px solid var(--win-light);
+  background: var(--win-button-active-bg);
+}
+
+/* 3D Inset Effect */
+.win-inset {
+  border-top: 2px solid var(--win-dark);
+  border-left: 2px solid var(--win-dark);
+  border-right: 2px solid var(--win-light);
+  border-bottom: 2px solid var(--win-light);
+  background: var(--win-gray);
+}
+
+/* 3D Outset Effect */
+.win-outset {
+  border-top: 2px solid var(--win-light);
+  border-left: 2px solid var(--win-light);
+  border-right: 2px solid var(--win-dark);
+  border-bottom: 2px solid var(--win-dark);
+  background: var(--win-gray);
+}
+
+/* Window Border */
+.win-window {
+  border-top: 2px solid var(--win-light);
+  border-left: 2px solid var(--win-light);
+  border-right: 2px solid var(--win-dark);
+  border-bottom: 2px solid var(--win-dark);
+  background: var(--win-gray);
+  box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Title Bar */
+.win-titlebar {
+  background: linear-gradient(to right, var(--win-title-active-start), var(--win-title-active-end));
+  color: var(--win-text-inverse);
+  padding: 2px 4px;
+  font-size: 11px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  cursor: move;
+  user-select: none;
+}
+
+.win-titlebar.inactive {
+  background: linear-gradient(to right, var(--win-title-inactive-start), var(--win-title-inactive-end));
+  color: var(--win-text);
+}
+
+/* Window Controls */
+.win-control {
+  width: 16px;
+  height: 14px;
+  border: 1px solid var(--win-dark);
+  background: var(--win-button-bg);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: bold;
+  margin-left: 2px;
+  padding: 0;
+  line-height: 1;
+}
+
+.win-control:hover {
+  background: #d4d0c8;
+}
+
+.win-control:active {
+  border-top: 1px solid var(--win-dark);
+  border-left: 1px solid var(--win-dark);
+  border-right: 1px solid var(--win-light);
+  border-bottom: 1px solid var(--win-light);
+}
+
+.win-control-close {
+  background: var(--win-button-bg);
+}
+
+.win-control-close:hover {
+  background: #ff0000;
+  color: var(--win-text-inverse);
+}
+
+/* Taskbar */
+.win-taskbar {
+  background: var(--taskbar);
+  border-top: 2px solid var(--win-light);
+  height: 30px;
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 10000;
+}
+
+/* Start Button */
+.win-start-button {
+  background: linear-gradient(to bottom, #008000, #004000);
+  color: var(--win-text-inverse);
+  border: 2px outset #008000;
+  padding: 2px 12px;
+  font-weight: bold;
+  font-size: 11px;
+  cursor: pointer;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.win-start-button:hover {
+  background: linear-gradient(to bottom, #00a000, #006000);
+}
+
+.win-start-button:active,
+.win-start-button.active {
+  border: 2px inset #008000;
+}
+
+/* Desktop Icon */
+.desktop-icon {
+  width: 80px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.desktop-icon.selected {
+  background: var(--win-selected-bg);
+  color: var(--win-selected-text);
+  border: 1px dashed var(--win-light);
+}
+
+.desktop-icon-label {
+  margin-top: 4px;
+  font-size: 11px;
+  text-align: center;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+  color: var(--win-text-inverse);
+  word-break: break-word;
+  max-width: 80px;
+}
+
+.desktop-icon.selected .desktop-icon-label {
+  color: var(--win-selected-text);
+  text-shadow: none;
+}
+
+.desktop-icon-image {
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+}
+
+/* Scrollbar */
+.win-scrollbar {
+  width: 16px;
+  background: var(--win-gray);
+  border-left: 1px solid var(--win-dark);
+}
+
+.win-scrollbar-thumb {
+  background: var(--win-button-bg);
+  border: 1px outset var(--win-button-bg);
+  min-height: 20px;
+}
+
+.win-scrollbar-thumb:hover {
+  background: #d4d0c8;
+}
+
+/* Context Menu */
+.win-context-menu {
+  background: var(--win-gray);
+  border: 2px outset var(--win-gray);
+  padding: 2px;
+  position: absolute;
+  z-index: 10001;
+  min-width: 150px;
+}
+
+.win-context-menu-item {
+  padding: 4px 20px;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.win-context-menu-item:hover {
+  background: var(--win-selected-bg);
+  color: var(--win-selected-text);
+}
+
+.win-context-menu-separator {
+  height: 1px;
+  background: var(--win-dark);
+  margin: 2px 0;
+  border-top: 1px solid var(--win-light);
+}
+
+/* Start Menu */
+.win-start-menu {
+  background: var(--win-gray);
+  border: 2px outset var(--win-gray);
+  position: fixed;
+  bottom: 30px;
+  left: 2px;
+  min-width: 200px;
+  z-index: 10001;
+}
+
+.win-start-menu-item {
+  padding: 4px 20px;
+  cursor: pointer;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+}
+
+.win-start-menu-item:hover {
+  background: var(--win-selected-bg);
+  color: var(--win-selected-text);
+}
+
+.win-start-menu-item.has-arrow::after {
+  content: "▶";
+  margin-left: auto;
+  font-size: 8px;
+}
+
+/* Input Fields */
+.win-input {
+  border: 2px inset var(--win-gray);
+  background: var(--win-text-inverse);
+  padding: 2px 4px;
+  font-size: 11px;
+  font-family: "MS Sans Serif", "Tahoma", sans-serif;
+}
+
+.win-input:focus {
+  outline: 1px dotted var(--win-dark);
+  outline-offset: -2px;
+}
+
+/* Selection Highlight */
+.selected {
+  background: var(--win-selected-bg);
+  color: var(--win-selected-text);
+}
+
+/* Disabled State */
+.win-button:disabled,
+.win-control:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Window Content Area */
+.win-content {
+  background: var(--win-text-inverse);
+  border: 1px inset var(--win-gray);
+  padding: 4px;
+  overflow: auto;
+}
+
+/* Toolbar */
+.win-toolbar {
+  background: var(--win-gray);
+  border-bottom: 1px solid var(--win-dark);
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.win-toolbar-button {
+  border: 1px outset var(--win-gray);
+  background: var(--win-button-bg);
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.win-toolbar-button:hover {
+  background: #d4d0c8;
+}
+
+.win-toolbar-button:active {
+  border: 1px inset var(--win-gray);
+}
+
+/* Status Bar */
+.win-statusbar {
+  background: var(--win-gray);
+  border-top: 1px solid var(--win-dark);
+  padding: 2px 4px;
+  font-size: 11px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+}
+
+/* Cursor Animations */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+

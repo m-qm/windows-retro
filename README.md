@@ -1,36 +1,89 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Windows 98/XP Retro Simulator
+
+A nostalgic Windows 98/XP-style desktop simulation built with Next.js 14+, TypeScript, and Tailwind CSS.
+
+## Features
+
+- **Full Desktop Environment**: Classic Windows 98/XP desktop with gradient background
+- **Window System**: Draggable, resizable windows with minimize, maximize, and close controls
+- **Desktop Icons**: Interactive icons that can be dragged and double-clicked to open applications
+- **Taskbar**: Start menu, window task buttons, and system tray with clock
+- **Windows Media Player**: Full media player with audio visualizer (bar spectrum and waveform modes)
+- **Photo Viewer**: Image viewer with zoom, rotate, and slideshow features
+- **Video Player**: HTML5 video player with fullscreen support
+- **My Computer**: File explorer simulation
+- **Notepad**: Text editor with file operations
 
 ## Getting Started
 
-First, run the development server:
+### Installation
+
+```bash
+npm install
+```
+
+### Development
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Adding Media Files
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Audio Files
+Place MP3 files in `/public/audio/` and update the playlist in `stores/windowStore.ts`:
 
-## Learn More
+```typescript
+playlist: [
+  {
+    id: 'track1',
+    title: 'Your Track Name',
+    artist: 'Artist Name',
+    url: '/audio/your-track.mp3',
+  },
+]
+```
 
-To learn more about Next.js, take a look at the following resources:
+### Images
+Place image files (JPG, PNG, etc.) in `/public/images/` and update the `SAMPLE_IMAGES` array in `components/Apps/PhotoViewer/PhotoViewer.tsx`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Videos
+Place MP4 files in `/public/videos/` and update the `SAMPLE_VIDEOS` array in `components/Apps/VideoPlayer/VideoPlayer.tsx`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Icons
+Place icon images (32x32 or 48x48 pixels) in `/public/icons/` and update the desktop icons in `stores/windowStore.ts`.
 
-## Deploy on Vercel
+## Project Structure
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+/app
+  /page.tsx - Main desktop page
+  /layout.tsx - Root layout
+/components
+  /Desktop - Desktop environment components
+  /Window - Window system components
+  /Apps - Application components
+    /MediaPlayer - Windows Media Player
+    /PhotoViewer - Image viewer
+    /VideoPlayer - Video player
+    /MyComputer - File explorer
+    /Notepad - Text editor
+/stores - Zustand state management
+/hooks - Custom React hooks
+/styles - Windows 98/XP styling
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Technologies Used
+
+- Next.js 14+ (App Router)
+- TypeScript
+- Tailwind CSS
+- Zustand (state management)
+- react-draggable (window dragging)
+- Web Audio API (audio visualizer)
+
+## License
+
+MIT
