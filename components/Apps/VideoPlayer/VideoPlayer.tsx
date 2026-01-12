@@ -3,9 +3,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 
 const SAMPLE_VIDEOS = [
-  '/videos/sample1.mp4',
-  '/videos/sample2.mp4',
-  '/videos/sample3.mp4',
+  '/videos/1.mov',
 ];
 
 export const VideoPlayer: React.FC = () => {

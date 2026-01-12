@@ -81,13 +81,19 @@ export const Desktop: React.FC = () => {
       ))}
 
       {/* Windows */}
-      {windows.map((window) => (
-        <Window key={window.id} window={window}>
-          <React.Suspense fallback={<div>Loading...</div>}>
-            {getWindowContent(window.type, window.url)}
-          </React.Suspense>
-        </Window>
-      ))}
+      {windows.map((window) => {
+        // Don't render minimized windows to avoid hook issues
+        if (window.isMinimized) {
+          return null;
+        }
+        return (
+          <Window key={window.id} window={window}>
+            <React.Suspense fallback={<div>Loading...</div>}>
+              {getWindowContent(window.type, window.url)}
+            </React.Suspense>
+          </Window>
+        );
+      })}
 
       {/* Context Menu */}
       {contextMenu && (

@@ -113,6 +113,7 @@ export const Window: React.FC<WindowProps> = ({ window, children }) => {
     };
   }, [isResizing, resizeDirection, resizeStart, window, updateWindow]);
 
+  // Don't render minimized windows - this prevents hook issues with lazy-loaded children
   if (window.isMinimized) {
     return null;
   }
