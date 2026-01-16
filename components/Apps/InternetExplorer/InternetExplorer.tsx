@@ -7,9 +7,36 @@ interface InternetExplorerProps {
   url?: string;
 }
 
+// Convert YouTube watch URL to embed URL format
+const convertYouTubeUrlToEmbed = (url: string): string => {
+  // Check if it's already an embed URL
+  if (url.includes('youtube.com/embed/')) {
+    return url;
+  }
+  
+  // Extract video ID from watch URL
+  const watchMatch = url.match(/[?&]v=([^&]+)/);
+  if (watchMatch) {
+    const videoId = watchMatch[1];
+    // Extract list parameter if present
+    const listMatch = url.match(/[?&]list=([^&]+)/);
+    const listParam = listMatch ? `&list=${listMatch[1]}` : '';
+    // Extract start_radio parameter if present
+    const radioMatch = url.match(/[?&]start_radio=([^&]+)/);
+    const radioParam = radioMatch ? `&start_radio=${radioMatch[1]}` : '';
+    
+    return `https://www.youtube.com/embed/${videoId}?${listParam}${radioParam}`.replace(/\?&/, '?').replace(/\?$/, '');
+  }
+  
+  // If it's not a YouTube URL or can't be converted, return as-is
+  return url;
+};
+
 export const InternetExplorer: React.FC<InternetExplorerProps> = ({ 
-  url = 'https://camera-effects.vercel.app/' 
+  url = 'https://www.youtube.com/watch?v=NI2mXlykECU&list=RDNI2mXlykECU&start_radio=1' 
 }) => {
+  // Convert YouTube URL to embed format if needed
+  const embedUrl = convertYouTubeUrlToEmbed(url);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const openWindow = useWindowStore((state) => state.openWindow);
   const componentIdRef = useRef<string>(`ie-${Date.now()}-${Math.random()}`);
@@ -27,7 +54,7 @@ export const InternetExplorer: React.FC<InternetExplorerProps> = ({
     // Store original window.open
     const originalOpen = window.open;
     const componentId = componentIdRef.current;
-    const baseUrl = url.replace(/\/$/, ''); // Remove trailing slash
+    const baseUrl = embedUrl.replace(/\/$/, ''); // Remove trailing slash
 
     // Override window.open to intercept popup requests
     // This will catch popups that escape the sandbox or are called from the parent context
@@ -63,7 +90,7 @@ export const InternetExplorer: React.FC<InternetExplorerProps> = ({
       }
       
       // Skip if it's the same as the main URL
-      if (finalUrl === baseUrl || finalUrl === baseUrl + '/' || finalUrl === url) {
+      if (finalUrl === baseUrl || finalUrl === baseUrl + '/' || finalUrl === url || finalUrl === embedUrl) {
         return originalOpen.call(window, popupUrl, target, features);
       }
       
@@ -178,7 +205,7 @@ export const InternetExplorer: React.FC<InternetExplorerProps> = ({
         clearInterval(checkForNewWindows);
       }
     };
-  }, [openWindow, url]);
+  }, [openWindow, embedUrl]);
 
   return (
     <div style={{ 
@@ -236,12 +263,30 @@ export const InternetExplorer: React.FC<InternetExplorerProps> = ({
             backgroundColor: '#c0c0c0',
             fontFamily: 'MS Sans Serif',
             fontSize: '11px',
-            cursor: 'pointer'
+            cursor: 'pointer',
+            marginRight: '4px'
           }}
           onClick={handleOpenControls}
           title="Open Controls Window"
         >
           Controls
+        </button>
+        <button
+          style={{
+            padding: '2px 8px',
+            border: '2px outset #c0c0c0',
+            backgroundColor: '#c0c0c0',
+            fontFamily: 'MS Sans Serif',
+            fontSize: '11px',
+            cursor: 'pointer'
+          }}
+          onClick={() => {
+            // Open the original YouTube watch URL in a new tab to see comments
+            window.open(url, '_blank');
+          }}
+          title="Open in YouTube (to see comments)"
+        >
+          View on YouTube
         </button>
       </div>
 
@@ -254,7 +299,7 @@ export const InternetExplorer: React.FC<InternetExplorerProps> = ({
       }}>
         <iframe
           ref={iframeRef}
-          src={url}
+          src={embedUrl}
           style={{
             width: '100%',
             height: '100%',

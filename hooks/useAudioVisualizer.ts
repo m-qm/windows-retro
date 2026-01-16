@@ -28,28 +28,60 @@ export const useAudioVisualizer = ({
         cancelAnimationFrame(animationFrameRef.current);
         animationFrameRef.current = null;
       }
+      // Cleanup on disable
+      if (sourceRef.current) {
+        try {
+          sourceRef.current.disconnect();
+        } catch (e) {
+          // Ignore disconnect errors
+        }
+        sourceRef.current = null;
+      }
+      if (audioContext && audioContext.state !== 'closed') {
+        audioContext.close();
+      }
       return;
     }
 
-    // Create AudioContext
-    const context = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const analyserNode = context.createAnalyser();
-    analyserNode.fftSize = 256;
-    analyserNode.smoothingTimeConstant = 0.8;
+    // Check if audio element is already connected to a source
+    // We need to reuse the existing context or create a new one carefully
+    let context: AudioContext;
+    let source: MediaElementAudioSourceNode;
+    
+    try {
+      // Try to create AudioContext
+      context = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const analyserNode = context.createAnalyser();
+      analyserNode.fftSize = 256;
+      analyserNode.smoothingTimeConstant = 0.8;
 
-    const bufferLength = analyserNode.frequencyBinCount;
-    const data = new Uint8Array(bufferLength);
-    setDataArray(data);
-    dataArrayRef.current = data;
+      const bufferLength = analyserNode.frequencyBinCount;
+      const data = new Uint8Array(bufferLength);
+      setDataArray(data);
+      dataArrayRef.current = data;
 
-    // Connect audio element to analyser
-    const source = context.createMediaElementSource(audioElement);
-    source.connect(analyserNode);
-    analyserNode.connect(context.destination);
+      // Check if audio element already has a source connected
+      // If it does, we need to disconnect it first or use a different approach
+      try {
+        source = context.createMediaElementSource(audioElement);
+        source.connect(analyserNode);
+        analyserNode.connect(context.destination);
+      } catch (error: any) {
+        // If the element is already connected, we can't create another source
+        // In this case, we'll use the audio element's audioTracks or try a different approach
+        console.warn('Audio element already connected, using alternative method:', error);
+        // Close the context we created since we can't use it
+        context.close();
+        return;
+      }
 
-    sourceRef.current = source;
-    setAudioContext(context);
-    setAnalyser(analyserNode);
+      sourceRef.current = source;
+      setAudioContext(context);
+      setAnalyser(analyserNode);
+    } catch (error) {
+      console.error('Error setting up audio visualizer:', error);
+      return;
+    }
 
     return () => {
       if (sourceRef.current) {
@@ -58,8 +90,9 @@ export const useAudioVisualizer = ({
         } catch (e) {
           // Ignore disconnect errors
         }
+        sourceRef.current = null;
       }
-      if (context.state !== 'closed') {
+      if (context && context.state !== 'closed') {
         context.close();
       }
     };

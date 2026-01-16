@@ -1,19 +1,45 @@
 'use client';
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import { useWindowStore } from '@/stores/windowStore';
 import { Visualizer } from './Visualizer';
 import { Controls } from './Controls';
 import { Playlist } from './Playlist';
 import { VisualizerMode } from '@/hooks/useAudioVisualizer';
+import { ParameterController } from '@/hooks/useHydraParameterController';
+
+// Declare global Hydra types
+declare global {
+  interface Window {
+    Hydra?: any;
+    src?: any;
+    osc?: any;
+    noise?: any;
+    gradient?: any;
+    time?: number;
+    s0?: any;
+    s1?: any;
+    o0?: any;
+    o1?: any;
+  }
+}
 
 export const MediaPlayer: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const hydraRef = useRef<any>(null);
+  const paramsRef = useRef<ParameterController | null>(null);
+  const effectIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const updateIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isPlaylistCollapsed, setIsPlaylistCollapsed] = useState(false);
   const [visualizerMode, setVisualizerMode] = useState<VisualizerMode>('battery');
   const [visualizerEnabled, setVisualizerEnabled] = useState(true);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [cameraReady, setCameraReady] = useState(false);
 
   const mediaPlayerState = useWindowStore((state) => state.mediaPlayerState);
   const {
@@ -28,7 +54,64 @@ export const MediaPlayer: React.FC = () => {
   } = useWindowStore();
 
   const { currentTrack, isPlaying, volume, isMuted, isShuffled, isRepeating, playlist } = mediaPlayerState;
-  const currentTrackData = playlist[currentTrack];
+  
+  // Safely get current track data with validation
+  const currentTrackData = useMemo(() => {
+    const track = playlist[currentTrack];
+    if (!track) return null;
+    
+    // Validate that URL is a string and not an object/video element
+    if (track.url && typeof track.url !== 'string') {
+      console.error('Invalid track URL type detected:', typeof track.url, track);
+      // Return a safe copy with empty URL to prevent errors
+      return { ...track, url: '' };
+    }
+    
+    // Additional check: ensure URL doesn't contain object references
+    if (typeof track.url === 'string' && (track.url.includes('[object') || track.url.includes('HTMLVideoElement'))) {
+      console.error('Track URL contains object reference:', track.url);
+      return { ...track, url: '' };
+    }
+    
+    return track;
+  }, [playlist, currentTrack]);
+  
+  // Determine track type - memoized to prevent infinite loops
+  const trackType = useMemo(() => {
+    if (!currentTrackData) return 'visualizer';
+    
+    const title = String(currentTrackData.title || '');
+    
+    // Safely get URL - ensure it's always a string and never an object
+    let url = '';
+    if (typeof currentTrackData.url === 'string') {
+      url = currentTrackData.url;
+    } else {
+      // If it's not a string, don't use it - this prevents video elements from being used
+      console.warn('Track URL is not a string, skipping URL-based detection:', typeof currentTrackData.url);
+      url = '';
+    }
+    
+    // Track 1: ASAP Rocky - Camera with surrealGlitch effects
+    if (title.includes('A$AP Rocky') || title.includes('Wassup') || (url && url.includes('Wassup'))) {
+      return 'camera-surreal-glitch';
+    }
+    // Track 2: I Smoked Away My Brain - Camera with NO effects (raw feed)
+    if (title.includes('I Smoked Away My Brain') || (url && url.includes('I Smoked Away My Brain'))) {
+      return 'camera-no-effects';
+    }
+    // Track 3: A1 Traca - Camera with warm reflective effects
+    if (title.includes('A1 Traca') || title.includes('Traca') || (url && url.includes('traca'))) {
+      return 'camera-warm-reflective';
+    }
+    // Others: Regular visualizer
+    return 'visualizer';
+  }, [currentTrack, currentTrackData?.id]);
+  
+  const isASAPRockyTrack = trackType === 'camera-surreal-glitch';
+  const isCameraNoEffectsTrack = trackType === 'camera-no-effects';
+  const isWarmReflectiveTrack = trackType === 'camera-warm-reflective';
+  const showCamera = isASAPRockyTrack || isCameraNoEffectsTrack || isWarmReflectiveTrack;
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -65,13 +148,66 @@ export const MediaPlayer: React.FC = () => {
 
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio || !currentTrackData) return;
+    if (!audio) return;
+    
+    // Get fresh track data from playlist to avoid stale references
+    const track = playlist[currentTrack];
+    if (!track || !track.url) {
+      console.warn('No track or track URL found for index:', currentTrack);
+      return;
+    }
 
-    audio.src = currentTrackData.url;
+    // Ensure url is a string, not an object or video element
+    let trackUrl: string = '';
+    
+    // Strict type checking
+    if (typeof track.url !== 'string') {
+      console.error('Track URL is not a string:', track.url, typeof track.url, track);
+      return;
+    }
+    
+    trackUrl = track.url.trim();
+    
+    if (!trackUrl || trackUrl.length === 0) {
+      console.error('Track URL is empty');
+      return;
+    }
+    
+    // Additional safety checks - reject any non-string values
+    if (trackUrl.includes('[object') || 
+        trackUrl.includes('HTMLVideoElement') || 
+        trackUrl.includes('HTMLAudioElement') ||
+        trackUrl.startsWith('object')) {
+      console.error('Invalid track URL detected (contains object reference):', trackUrl);
+      return;
+    }
+    
+    // Ensure it's a valid path (starts with /)
+    if (!trackUrl.startsWith('/')) {
+      console.error('Track URL does not start with /:', trackUrl);
+      return;
+    }
+
+    // Only set src if it's different to avoid unnecessary reloads
+    try {
+      const currentSrc = audio.src ? new URL(audio.src).pathname : '';
+      const newSrc = trackUrl;
+      
+      if (currentSrc !== newSrc) {
+        // Clear any existing source first
+        audio.src = '';
+        audio.src = trackUrl;
+        audio.load(); // Explicitly load the new source
+      }
+    } catch (error) {
+      console.error('Error setting audio source:', error, trackUrl);
+      return;
+    }
+    
     if (isPlaying) {
       audio.play().catch(console.error);
     }
-  }, [currentTrack, currentTrackData, isPlaying]);
+  }, [currentTrack, playlist, isPlaying]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -83,6 +219,416 @@ export const MediaPlayer: React.FC = () => {
       audio.pause();
     }
   }, [isPlaying]);
+
+  // Initialize camera when camera tracks are selected
+  useEffect(() => {
+    if (!showCamera) {
+      // Cleanup camera if switching away from camera tracks
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+      setCameraReady(false);
+      return;
+    }
+
+    const initCamera = async () => {
+      const video = videoRef.current;
+      if (!video) {
+        console.log('Video element not ready yet');
+        return;
+      }
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        const errorMsg = 'Camera API not available. Please use HTTPS or localhost.';
+        console.error(errorMsg);
+        setCameraError(errorMsg);
+        return;
+      }
+
+      try {
+        console.log('Requesting camera access for ASAP Rocky track...');
+        
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: 'user',
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+          audio: false,
+        });
+
+        console.log('Camera stream obtained:', stream);
+        streamRef.current = stream;
+        
+        video.autoplay = true;
+        video.playsInline = true;
+        video.muted = true;
+        video.srcObject = stream;
+        
+        setCameraError(null);
+
+        await new Promise<void>((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error('Camera initialization timeout'));
+          }, 10000);
+
+          const checkReady = () => {
+            if (video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) {
+              clearTimeout(timeout);
+              console.log('Video ready:', video.videoWidth, 'x', video.videoHeight);
+              video.play()
+                .then(() => {
+                  console.log('Video playing');
+                  setCameraReady(true);
+                  resolve();
+                })
+                .catch((err) => {
+                  console.error('Error playing video:', err);
+                  setCameraReady(true);
+                  resolve();
+                });
+            } else {
+              setTimeout(checkReady, 50);
+            }
+          };
+          
+          video.addEventListener('loadedmetadata', checkReady, { once: true });
+          video.addEventListener('loadeddata', checkReady, { once: true });
+          checkReady();
+        });
+      } catch (error: any) {
+        console.error('Error accessing camera:', error);
+        let errorMsg = 'Failed to access camera';
+        
+        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+          errorMsg = 'Camera permission denied. Please allow camera access.';
+        } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+          errorMsg = 'No camera found. Please connect a camera.';
+        } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+          errorMsg = 'Camera is already in use by another application.';
+        } else if (error.message) {
+          errorMsg = error.message;
+        }
+        
+        setCameraError(errorMsg);
+        setCameraReady(false);
+      }
+    };
+
+    const timer = setTimeout(() => {
+      initCamera();
+    }, 100);
+
+    return () => {
+      clearTimeout(timer);
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+      if (updateIntervalRef.current) {
+        clearInterval(updateIntervalRef.current);
+        updateIntervalRef.current = null;
+      }
+      setCameraReady(false);
+    };
+  }, [showCamera]);
+
+  // Apply warm reflective effect (for track 3)
+  const applyWarmReflective = useCallback(() => {
+    if (!paramsRef.current || !window.s0) return;
+
+    const params = paramsRef.current;
+    const currentTime = window.time ?? 0;
+    const warmth = params.get('warmth');
+    const reflection = params.get('reflection');
+    const texture = params.get('texture');
+    const glow = params.get('glow');
+    const layerBlend = params.get('layerBlend');
+    const distortion = params.get('distortion');
+    
+    // Nested reflection effect:
+    // 1. Outer reflection: inverted, full screen (background)
+    // 2. Inner reflection: inverted, smaller, centered (contained within outer)
+    // 3. Combine them with the outer as base
+    
+    // Step 1: Create outer reflection - inverted vertically, full screen (background)
+    const outerReflection = window.src(window.s0)
+      .scale(1, -1) // Invert outer scene vertically (full screen)
+      .color(1, 0.7 + warmth * 0.3, 0.3 + warmth * 0.4) // Warm tones
+      .saturate(0.8 + warmth * 0.4)
+      .contrast(1.2 + glow * 0.3)
+      .brightness(0.1 + glow * 0.2);
+    
+    // Step 2: Create inner reflection - inverted, smaller, centered (contained reflection)
+    const innerReflection = window.src(window.s0)
+      .scale(0.5, -0.5) // Make smaller (50%) and invert vertically
+      .scrollY(0.0) // Center vertically
+      .scrollX(0.0) // Center horizontally
+      .color(1, 0.7 + warmth * 0.3, 0.3 + warmth * 0.4) // Warm tones
+      .saturate(0.8 + warmth * 0.4)
+      .contrast(1.2 + glow * 0.3)
+      .brightness(0.1 + glow * 0.2);
+    
+    // Step 3: Combine - outer inverted reflection as base, inner inverted reflection on top
+    outerReflection
+      .blend(innerReflection, layerBlend * 0.9)
+      .out(window.o0);
+  }, []);
+
+  // Apply surrealGlitch effect - memoized to prevent recreation
+  const applySurrealGlitch = useCallback(() => {
+    if (!paramsRef.current || !window.s0) return;
+
+    const params = paramsRef.current;
+    const pinkSplash = params.get('pinkSplash');
+    const pixelation = params.get('pixelation');
+    const blockyArtifacts = params.get('blockyArtifacts');
+    const glitchDist = params.get('glitchDistortion');
+    const goldTint = params.get('goldTint');
+    
+    const pixelScale = 0.05 + (1 - pixelation) * 0.25;
+    
+    window.src(window.s0)
+      .scale(pixelScale, pixelScale)
+      .scale(1 / pixelScale, 1 / pixelScale)
+      .thresh(0.5)
+      .contrast(params.get('contrast') * 1.5)
+      .saturate(params.get('saturation') * 1.3)
+      .out(window.o1);
+    
+    const pinkMask = window.noise(0.3)
+      .thresh(0.3 + pinkSplash * 0.4)
+      .scale(0.1, 0.1)
+      .scale(10, 10)
+      .thresh(0.5);
+    
+    const pinkOverlay = window.src(window.s0)
+      .color(1, 0.2, 0.8)
+      .saturate(3)
+      .brightness(0.5)
+      .thresh(0.4)
+      .mask(pinkMask);
+    
+    const currentTime = window.time ?? 0;
+    const blockyNoise = window.noise(0.2)
+      .thresh(0.4 + blockyArtifacts * 0.4)
+      .scale(0.03 + blockyArtifacts * 0.12, 0.03 + blockyArtifacts * 0.12)
+      .scale(1 / (0.03 + blockyArtifacts * 0.12), 1 / (0.03 + blockyArtifacts * 0.12))
+      .thresh(0.5)
+      .scrollY(currentTime * 0.2)
+      .scrollX(currentTime * 0.15);
+    
+    const glitchLines = window.noise(100)
+      .thresh(0.95)
+      .scale(0.01, 0.01)
+      .scale(100, 100)
+      .thresh(0.9)
+      .scrollY(currentTime * 1.5);
+    
+    const framePersistence = 0.85 + (1 - goldTint) * 0.1;
+    
+    const squareDistort = window.noise(0.5)
+      .thresh(0.7)
+      .scale(0.05, 0.05)
+      .scale(20, 20)
+      .thresh(0.8);
+    
+    window.src(window.o1)
+      .layer(pinkOverlay, pinkSplash)
+      .modulate(blockyNoise, blockyArtifacts * 0.4)
+      .modulate(glitchLines, glitchDist * 0.15)
+      .modulate(squareDistort.scrollY(currentTime * 1.2), glitchDist * 0.12)
+      // Remove scroll to ensure full screen coverage
+      // .scrollX(params.get('scrollX') * (1 + glitchDist * 2))
+      // .scrollY(params.get('scrollY') * (1 + glitchDist * 2))
+      .color(
+        params.get('colorR') * (1 - pinkSplash * 0.3),
+        params.get('colorG') * (1 - pinkSplash * 0.2),
+        params.get('colorB') * (1 - pinkSplash * 0.1)
+      )
+      .blend(window.o0, framePersistence)
+      .out(window.o0);
+  }, []);
+
+  // Initialize Hydra when camera tracks are playing and camera is ready
+  useEffect(() => {
+    if ((!isASAPRockyTrack && !isWarmReflectiveTrack) || !cameraReady || !isPlaying) {
+      // No interval to clean up - we only apply effects once
+      if (updateIntervalRef.current) {
+        clearInterval(updateIntervalRef.current);
+        updateIntervalRef.current = null;
+      }
+      return;
+    }
+    
+    const initHydra = async () => {
+      if (!canvasRef.current || !videoRef.current) {
+        console.log('Canvas or video element not ready');
+        return;
+      }
+
+      const video = videoRef.current;
+      
+      if (video.videoWidth === 0 || video.videoHeight === 0) {
+        const waitForDimensions = () => {
+          if (video.videoWidth > 0 && video.videoHeight > 0) {
+            console.log('Video has dimensions:', video.videoWidth, 'x', video.videoHeight);
+            initHydra();
+          } else {
+            setTimeout(waitForDimensions, 100);
+          }
+        };
+        setTimeout(waitForDimensions, 100);
+        return;
+      }
+
+      try {
+        console.log('Initializing Hydra for ASAP Rocky track...');
+        const Hydra = (await import('hydra-synth')).default;
+        
+        const hydra = new Hydra({
+          canvas: canvasRef.current,
+          autoLoop: true,
+          detectAudio: false,
+          precision: 'highp',
+        });
+
+        console.log('Hydra initialized');
+        hydraRef.current = hydra;
+        paramsRef.current = new ParameterController();
+
+        await new Promise(resolve => setTimeout(resolve, 200));
+
+        const setupVideoSource = () => {
+          if (!window.s0) {
+            console.error('Hydra s0 not available');
+            return;
+          }
+
+          if (video.readyState >= 2 && video.videoWidth > 0) {
+            try {
+              console.log('Setting up video source with Hydra...');
+              // For video elements, use init({ src: video }) - this handles live video streams
+              // Do NOT use initImage() with video elements as it expects a URL string or Image element
+              window.s0.init({ src: video });
+              console.log('Initialized s0 with init({ src: video })');
+              
+              // Use requestAnimationFrame for better timing instead of setTimeout
+              requestAnimationFrame(() => {
+                try {
+                  // Apply the correct effect based on track type
+                  if (isASAPRockyTrack) {
+                    applySurrealGlitch();
+                  } else if (isWarmReflectiveTrack) {
+                    applyWarmReflective();
+                  }
+                } catch (error) {
+                  console.error('Error applying effects:', error);
+                }
+              });
+            } catch (error) {
+              console.error('Error initializing camera source:', error);
+            }
+          }
+        };
+
+        setupVideoSource();
+
+        // For live video streams with init({ src: video }), Hydra automatically
+        // handles frame updates. We don't need to continuously call initImage()
+        // which was causing the error (initImage expects URL string or Image, not Video element).
+        // The update interval is removed as it's not needed and was causing the error.
+
+        // Apply effects - Hydra's autoLoop handles continuous rendering
+        // We only need to set up the effect chain once, Hydra will handle the rest
+        // Apply the correct effect based on track type
+        try {
+          if (isASAPRockyTrack) {
+            applySurrealGlitch();
+            console.log('SurrealGlitch effect applied');
+          } else if (isWarmReflectiveTrack) {
+            applyWarmReflective();
+            console.log('WarmReflective effect applied');
+          }
+        } catch (error) {
+          console.error('Error applying initial effects:', error);
+        }
+        
+        // No need for continuous reapplication - Hydra's autoLoop handles rendering
+        // The effect chain is set up once and Hydra continuously renders it
+
+        return () => {
+          if (updateIntervalRef.current) {
+            clearInterval(updateIntervalRef.current);
+            updateIntervalRef.current = null;
+          }
+          // No interval to clean up - we only apply effects once
+        };
+      } catch (error) {
+        console.error('Error initializing Hydra:', error);
+        setCameraError('Failed to initialize video effects');
+      }
+    };
+
+    const timer = setTimeout(() => {
+      initHydra();
+    }, 500);
+
+    return () => {
+      clearTimeout(timer);
+      if (updateIntervalRef.current) {
+        clearInterval(updateIntervalRef.current);
+        updateIntervalRef.current = null;
+      }
+      // No interval to clean up - we only apply effects once
+    };
+  }, [isASAPRockyTrack, isWarmReflectiveTrack, cameraReady, isPlaying, applySurrealGlitch, applyWarmReflective]);
+
+  // Sync canvas size with video dimensions
+  useEffect(() => {
+    if (!showCamera) return;
+    
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+
+    const updateCanvasSize = () => {
+      if (video.videoWidth > 0 && video.videoHeight > 0) {
+        // Set canvas to fill container while maintaining aspect ratio
+        const container = canvas.parentElement;
+        if (container) {
+          const containerWidth = container.clientWidth;
+          const containerHeight = container.clientHeight;
+          const videoAspect = video.videoWidth / video.videoHeight;
+          const containerAspect = containerWidth / containerHeight;
+          
+          if (containerAspect > videoAspect) {
+            // Container is wider - fit to height
+            canvas.height = containerHeight;
+            canvas.width = containerHeight * videoAspect;
+          } else {
+            // Container is taller - fit to width
+            canvas.width = containerWidth;
+            canvas.height = containerWidth / videoAspect;
+          }
+        } else {
+          // Fallback to video dimensions
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+        }
+      }
+    };
+
+    video.addEventListener('loadedmetadata', updateCanvasSize);
+    video.addEventListener('resize', updateCanvasSize);
+    updateCanvasSize();
+
+    return () => {
+      video.removeEventListener('loadedmetadata', updateCanvasSize);
+      video.removeEventListener('resize', updateCanvasSize);
+    };
+  }, [showCamera]);
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const audio = audioRef.current;
@@ -133,41 +679,108 @@ export const MediaPlayer: React.FC = () => {
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {/* Visualizer and Controls */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          {/* Visualizer */}
+          {/* Visualizer or Camera */}
           <div style={{ flex: 1, minHeight: '150px', background: '#000000' }}>
-            <div style={{ padding: '4px', background: '#1a1a1a', borderBottom: '1px solid #000000', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{ fontSize: '10px', color: '#cccccc' }}>Mode:</span>
-                <select
-                  className="win-input"
-                  value={visualizerMode}
-                  onChange={(e) => setVisualizerMode(e.target.value as VisualizerMode)}
-                  style={{ fontSize: '10px', padding: '2px', minWidth: '110px' }}
-                >
-                  <option value="battery">Battery (Classic)</option>
-                  <option value="bars">Spectrum Bars</option>
-                  <option value="waveform">Waveform</option>
-                  <option value="scope">Scope</option>
-                </select>
-              </div>
-              <button
-                className="win-button"
-                onClick={() => setVisualizerEnabled(!visualizerEnabled)}
-                style={{ fontSize: '10px', padding: '2px 6px' }}
-              >
-                {visualizerEnabled ? 'Hide' : 'Show'}
-              </button>
-            </div>
-            {visualizerEnabled && (
-              <div style={{ height: 'calc(100% - 30px)', width: '100%' }}>
-                <Visualizer
-                  audioElement={audioRef.current}
-                  enabled={visualizerEnabled && isPlaying}
-                  mode={visualizerMode}
-                  width={400}
-                  height={150}
-                />
-              </div>
+            {showCamera ? (
+              // Camera feed (with or without effects depending on track)
+              <>
+                <div style={{ padding: '4px', background: '#1a1a1a', borderBottom: '1px solid #000000', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '10px', color: '#cccccc' }}>
+                    {isASAPRockyTrack 
+                      ? 'Front Camera - Surreal Glitch Effect' 
+                      : isWarmReflectiveTrack 
+                        ? 'Front Camera - Warm Reflective Effect'
+                        : 'Front Camera - Raw Feed'}
+                  </span>
+                </div>
+                {cameraError ? (
+                  <div style={{ padding: '20px', textAlign: 'center', color: '#ffffff', height: 'calc(100% - 30px)' }}>
+                    <div style={{ fontSize: '24px', marginBottom: '8px' }}>📷</div>
+                    <div style={{ fontSize: '10px', color: '#cccccc' }}>{cameraError}</div>
+                  </div>
+                ) : isCameraNoEffectsTrack ? (
+                  // Raw camera feed without effects
+                  <div style={{ height: 'calc(100% - 30px)', width: '100%', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <video
+                      ref={videoRef}
+                      style={{
+                        maxWidth: '100%',
+                        maxHeight: '100%',
+                        width: 'auto',
+                        height: 'auto',
+                      }}
+                      controls={false}
+                      playsInline
+                      muted
+                      autoPlay
+                    />
+                  </div>
+                ) : (
+                  // Camera with Hydra effects for ASAP Rocky track
+                  <div style={{ height: 'calc(100% - 30px)', width: '100%', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <video
+                      ref={videoRef}
+                      style={{
+                        position: 'absolute',
+                        width: 0,
+                        height: 0,
+                        opacity: 0,
+                        pointerEvents: 'none',
+                      }}
+                      controls={false}
+                      playsInline
+                      muted
+                      autoPlay
+                    />
+                    <canvas
+                      ref={canvasRef}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                      }}
+                    />
+                  </div>
+                )}
+              </>
+            ) : (
+              // Regular visualizer for other tracks
+              <>
+                <div style={{ padding: '4px', background: '#1a1a1a', borderBottom: '1px solid #000000', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ fontSize: '10px', color: '#cccccc' }}>Mode:</span>
+                    <select
+                      className="win-input"
+                      value={visualizerMode}
+                      onChange={(e) => setVisualizerMode(e.target.value as VisualizerMode)}
+                      style={{ fontSize: '10px', padding: '2px', minWidth: '110px' }}
+                    >
+                      <option value="battery">Battery (Classic)</option>
+                      <option value="bars">Spectrum Bars</option>
+                      <option value="waveform">Waveform</option>
+                      <option value="scope">Scope</option>
+                    </select>
+                  </div>
+                  <button
+                    className="win-button"
+                    onClick={() => setVisualizerEnabled(!visualizerEnabled)}
+                    style={{ fontSize: '10px', padding: '2px 6px' }}
+                  >
+                    {visualizerEnabled ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+                {visualizerEnabled && (
+                  <div style={{ height: 'calc(100% - 30px)', width: '100%' }}>
+                    <Visualizer
+                      audioElement={showCamera ? null : audioRef.current}
+                      enabled={visualizerEnabled && isPlaying && !showCamera}
+                      mode={visualizerMode}
+                      width={400}
+                      height={150}
+                    />
+                  </div>
+                )}
+              </>
             )}
           </div>
 

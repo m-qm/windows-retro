@@ -2,23 +2,15 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 
-interface Particle {
-  id: number;
+interface TrailPoint {
   x: number;
   y: number;
-  vx: number;
-  vy: number;
-  life: number;
-  maxLife: number;
-  size: number;
-  color: string;
+  timestamp: number;
 }
 
 export const AnimatedCursor: React.FC = () => {
   const [position, setPosition] = useState({ x: 0, y: 0 });
-  const [particles, setParticles] = useState<Particle[]>([]);
-  const particleIdRef = useRef(0);
-  const lastPositionRef = useRef({ x: 0, y: 0 });
+  const [trail, setTrail] = useState<TrailPoint[]>([]);
   const animationFrameRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -26,60 +18,27 @@ export const AnimatedCursor: React.FC = () => {
       const newPos = { x: e.clientX, y: e.clientY };
       setPosition(newPos);
       
-      // Create particles when cursor moves
-      const distance = Math.sqrt(
-        Math.pow(newPos.x - lastPositionRef.current.x, 2) + 
-        Math.pow(newPos.y - lastPositionRef.current.y, 2)
-      );
-      
-      if (distance > 2) {
-        // Create spark particles
-        const newParticles: Particle[] = [];
-        const particleCount = Math.min(Math.floor(distance / 5), 3);
-        
-        for (let i = 0; i < particleCount; i++) {
-          const angle = Math.random() * Math.PI * 2;
-          const speed = 0.5 + Math.random() * 1.5;
-          const colors = ['#ffffff', '#ffff00', '#00ffff', '#ff00ff', '#ffaa00'];
-          
-          newParticles.push({
-            id: particleIdRef.current++,
-            x: newPos.x + (Math.random() - 0.5) * 10,
-            y: newPos.y + (Math.random() - 0.5) * 10,
-            vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed,
-            life: 1,
-            maxLife: 0.5 + Math.random() * 0.5,
-            size: 2 + Math.random() * 3,
-            color: colors[Math.floor(Math.random() * colors.length)],
-          });
-        }
-        
-        setParticles((prev) => [...prev, ...newParticles]);
-      }
-      
-      lastPositionRef.current = newPos;
-    };
-
-    // Animate particles
-    const animateParticles = () => {
-      setParticles((prev) => {
-        return prev
-          .map((particle) => ({
-            ...particle,
-            x: particle.x + particle.vx,
-            y: particle.y + particle.vy,
-            vx: particle.vx * 0.95, // Friction
-            vy: particle.vy * 0.95,
-            life: particle.life - 0.02,
-          }))
-          .filter((particle) => particle.life > 0);
+      // Add point to trail
+      setTrail((prev) => {
+        const newTrail = [
+          ...prev,
+          { x: newPos.x, y: newPos.y, timestamp: Date.now() }
+        ];
+        // Keep only last 8 points for a subtle trail
+        return newTrail.slice(-8);
       });
-      
-      animationFrameRef.current = requestAnimationFrame(animateParticles);
     };
 
-    animationFrameRef.current = requestAnimationFrame(animateParticles);
+    // Clean up old trail points
+    const cleanupTrail = () => {
+      const now = Date.now();
+      setTrail((prev) => 
+        prev.filter((point) => now - point.timestamp < 200)
+      );
+      animationFrameRef.current = requestAnimationFrame(cleanupTrail);
+    };
+
+    animationFrameRef.current = requestAnimationFrame(cleanupTrail);
 
     document.addEventListener('mousemove', handleMouseMove);
 
@@ -93,27 +52,50 @@ export const AnimatedCursor: React.FC = () => {
 
   return (
     <>
-      {/* Spark particles */}
-      {particles.map((particle) => (
-        <div
-          key={particle.id}
-          style={{
-            position: 'fixed',
-            left: `${particle.x}px`,
-            top: `${particle.y}px`,
-            pointerEvents: 'none',
-            zIndex: 99998,
-            width: `${particle.size}px`,
-            height: `${particle.size}px`,
-            borderRadius: '50%',
-            background: particle.color,
-            boxShadow: `0 0 ${particle.size * 2}px ${particle.color}`,
-            opacity: particle.life / particle.maxLife,
-            transform: `translate(-50%, -50%) scale(${particle.life})`,
-            transition: 'none',
-          }}
-        />
-      ))}
+      {/* Retro cursor trail - Windows 98 style */}
+      {trail.map((point, index) => {
+        const opacity = (index + 1) / trail.length * 0.3;
+        const size = 4 + (index / trail.length) * 2;
+        
+        return (
+          <div
+            key={`${point.x}-${point.y}-${point.timestamp}`}
+            style={{
+              position: 'fixed',
+              left: `${point.x}px`,
+              top: `${point.y}px`,
+              pointerEvents: 'none',
+              zIndex: 99998,
+              width: `${size}px`,
+              height: `${size}px`,
+              borderRadius: '50%',
+              background: `radial-gradient(circle, rgba(0, 120, 215, ${opacity}) 0%, rgba(0, 120, 215, 0) 70%)`,
+              border: `1px solid rgba(0, 120, 215, ${opacity * 0.5})`,
+              transform: 'translate(-50%, -50%)',
+              transition: 'none',
+            }}
+          />
+        );
+      })}
+      
+      {/* Main cursor glow */}
+      <div
+        style={{
+          position: 'fixed',
+          left: `${position.x}px`,
+          top: `${position.y}px`,
+          pointerEvents: 'none',
+          zIndex: 99999,
+          width: '8px',
+          height: '8px',
+          borderRadius: '50%',
+          background: 'rgba(0, 120, 215, 0.6)',
+          border: '1px solid rgba(0, 120, 215, 0.8)',
+          boxShadow: '0 0 8px rgba(0, 120, 215, 0.4)',
+          transform: 'translate(-50%, -50%)',
+          transition: 'none',
+        }}
+      />
     </>
   );
 };
