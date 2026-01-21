@@ -173,16 +173,16 @@ export const useWindowStore = create<WindowStore>((set, get) => ({
         url: '/audio/01 - I Smoked Away My Brain.mp3',
       },
       {
-        id: 'track3',
-        title: 'Visages',
-        artist: 'The Hidden Valley', 
-        url: '/audio/Visajes The Hidden Valley.mp3',
-      },
-      {
         id: 'video1',
         title: 'Video',
         artist: 'Video File',
         url: '/videos/1_compressed.mp4',
+      },
+      {
+        id: 'track3',
+        title: 'Visages',
+        artist: 'The Hidden Valley', 
+        url: '/audio/Visajes The Hidden Valley.mp3',
       },
     ],
   },
