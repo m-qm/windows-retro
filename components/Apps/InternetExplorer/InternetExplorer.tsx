@@ -123,7 +123,7 @@ export const InternetExplorer: React.FC<InternetExplorerProps> = ({
           focus: () => {},
           blur: () => {},
           postMessage: () => {},
-        } as Window;
+        } as unknown as Window;
       }
 
       // For other URLs, use original behavior
