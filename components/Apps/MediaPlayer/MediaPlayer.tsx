@@ -969,6 +969,7 @@ export const MediaPlayer: React.FC = () => {
               }}
               controls={false}
               playsInline
+              autoPlay
             />
             {isVideoTrack ? (
               // Video file playback
