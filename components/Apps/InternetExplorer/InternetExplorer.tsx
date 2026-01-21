@@ -14,10 +14,23 @@ const convertYouTubeUrlToEmbed = (url: string): string => {
     return url;
   }
   
-  // Extract video ID from watch URL
-  const watchMatch = url.match(/[?&]v=([^&]+)/);
-  if (watchMatch) {
-    const videoId = watchMatch[1];
+  let videoId: string | null = null;
+  
+  // Extract video ID from youtu.be short URL
+  const youtuBeMatch = url.match(/youtu\.be\/([^?&]+)/);
+  if (youtuBeMatch) {
+    videoId = youtuBeMatch[1];
+  }
+  
+  // Extract video ID from watch URL if not found yet
+  if (!videoId) {
+    const watchMatch = url.match(/[?&]v=([^&]+)/);
+    if (watchMatch) {
+      videoId = watchMatch[1];
+    }
+  }
+  
+  if (videoId) {
     // Extract list parameter if present
     const listMatch = url.match(/[?&]list=([^&]+)/);
     const listParam = listMatch ? `&list=${listMatch[1]}` : '';
@@ -25,7 +38,7 @@ const convertYouTubeUrlToEmbed = (url: string): string => {
     const radioMatch = url.match(/[?&]start_radio=([^&]+)/);
     const radioParam = radioMatch ? `&start_radio=${radioMatch[1]}` : '';
     
-    return `https://www.youtube.com/embed/${videoId}?${listParam}${radioParam}`.replace(/\?&/, '?').replace(/\?$/, '');
+    return `https://www.youtube.com/embed/${videoId}${listParam || radioParam ? '?' : ''}${listParam}${radioParam}`.replace(/\?&/, '?').replace(/\?$/, '');
   }
   
   // If it's not a YouTube URL or can't be converted, return as-is
@@ -33,7 +46,7 @@ const convertYouTubeUrlToEmbed = (url: string): string => {
 };
 
 export const InternetExplorer: React.FC<InternetExplorerProps> = ({ 
-  url = 'https://www.youtube.com/watch?v=NI2mXlykECU&list=RDNI2mXlykECU&start_radio=1' 
+    url = 'https://www.youtube.com/watch?v=LXOr65OZ-Ac'
 }) => {
   // Convert YouTube URL to embed format if needed
   const embedUrl = convertYouTubeUrlToEmbed(url);

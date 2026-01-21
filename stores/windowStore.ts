@@ -174,9 +174,9 @@ export const useWindowStore = create<WindowStore>((set, get) => ({
       },
       {
         id: 'track3',
-        title: 'A1 Traca',
-        artist: 'mimiq', 
-        url: '/audio/traca.wav',
+        title: 'Visages',
+        artist: 'The Hidden Valley', 
+        url: '/audio/Visajes The Hidden Valley.mp3',
       },
     ],
   },

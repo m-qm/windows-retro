@@ -14,40 +14,19 @@ interface PlaylistProps {
   tracks: Track[];
   currentTrackIndex: number;
   onTrackSelect: (index: number) => void;
-  isCollapsed: boolean;
-  onToggleCollapse: () => void;
 }
 
 export const Playlist: React.FC<PlaylistProps> = ({
   tracks,
   currentTrackIndex,
   onTrackSelect,
-  isCollapsed,
-  onToggleCollapse,
 }) => {
-  if (isCollapsed) {
-    return (
-      <div
-        style={{
-          width: '20px',
-          background: '#2a2a2a',
-          borderLeft: '1px solid #000000',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-        onClick={onToggleCollapse}
-      >
-        ▶
-      </div>
-    );
-  }
-
+  // Playlist is always visible - no collapsed state
   return (
     <div
       style={{
         width: '200px',
+        minWidth: '200px', // Prevent shrinking
         background: '#2a2a2a',
         borderLeft: '1px solid #000000',
         display: 'flex',
@@ -59,24 +38,12 @@ export const Playlist: React.FC<PlaylistProps> = ({
           padding: '4px',
           background: '#1a1a1a',
           borderBottom: '1px solid #000000',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
         }}
       >
-        <span style={{ color: '#ffffff', fontSize: '11px', fontWeight: 'bold' }}>Playlist</span>
-        <button
-          className="win-button"
-          onClick={onToggleCollapse}
-          style={{
-            padding: '2px 4px',
-            fontSize: '10px',
-            minWidth: 'auto',
-            height: '16px',
-          }}
-        >
-          ◀
-        </button>
+        <div style={{ color: '#ffffff', fontSize: '11px', fontWeight: 'bold', display: 'flex', flexDirection: 'column' }}>
+          <span>Playlist:</span>
+          <span>Hip Hop Chill</span>
+        </div>
       </div>
       <div style={{ flex: 1, overflowY: 'auto', color: '#ffffff' }}>
         {tracks.map((track, index) => (

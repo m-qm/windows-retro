@@ -31,6 +31,9 @@ export class ParameterController {
       glow: { value: 0.8, min: 0, max: 1, step: 0.01 },
       layerBlend: { value: 0.4, min: 0, max: 1, step: 0.01 },
       distortion: { value: 0.3, min: 0, max: 1, step: 0.01 },
+      
+      // Source toggle: 0 = s0, 1 = s1
+      sourceToggle: { value: 0, min: 0, max: 1, step: 1 },
     };
   }
   

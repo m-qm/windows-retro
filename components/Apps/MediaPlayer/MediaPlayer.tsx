@@ -27,15 +27,16 @@ declare global {
 export const MediaPlayer: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const videoRefS1 = useRef<HTMLVideoElement | null>(null); // Second video element for s1 camera
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const hydraRef = useRef<any>(null);
   const paramsRef = useRef<ParameterController | null>(null);
   const effectIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const streamRefS1 = useRef<MediaStream | null>(null); // Second camera stream for s1
   const updateIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [isPlaylistCollapsed, setIsPlaylistCollapsed] = useState(false);
   const [visualizerMode, setVisualizerMode] = useState<VisualizerMode>('battery');
   const [visualizerEnabled, setVisualizerEnabled] = useState(true);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -54,6 +55,7 @@ export const MediaPlayer: React.FC = () => {
   } = useWindowStore();
 
   const { currentTrack, isPlaying, volume, isMuted, isShuffled, isRepeating, playlist } = mediaPlayerState;
+  
   
   // Safely get current track data with validation
   const currentTrackData = useMemo(() => {
@@ -101,7 +103,7 @@ export const MediaPlayer: React.FC = () => {
       return 'camera-no-effects';
     }
     // Track 3: A1 Traca - Camera with warm reflective effects
-    if (title.includes('A1 Traca') || title.includes('Traca') || (url && url.includes('traca'))) {
+    if (title.includes('Visages') || title.includes('The Hidden Valley') || (url && url.includes('Visajes The Hidden Valley.mp3'))) {
       return 'camera-warm-reflective';
     }
     // Others: Regular visualizer
@@ -204,35 +206,48 @@ export const MediaPlayer: React.FC = () => {
       return;
     }
     
-    if (isPlaying) {
-      audio.play().catch(console.error);
-    }
-  }, [currentTrack, playlist, isPlaying]);
+    // Don't auto-play here - let the isPlaying useEffect handle playback
+  }, [currentTrack, playlist]);
 
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
     if (isPlaying) {
+      // If audio doesn't have a source yet, set it first
+      if (!audio.src || audio.src === window.location.href) {
+        const track = playlist[currentTrack];
+        if (track && typeof track.url === 'string') {
+          audio.src = track.url;
+          audio.load();
+        }
+      }
       audio.play().catch(console.error);
     } else {
       audio.pause();
     }
-  }, [isPlaying]);
+  }, [isPlaying, currentTrack, playlist]);
 
-  // Initialize camera when camera tracks are selected
+  // Initialize cameras when camera tracks are selected
   useEffect(() => {
     if (!showCamera) {
-      // Cleanup camera if switching away from camera tracks
+      // Cleanup cameras if switching away from camera tracks
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
         streamRef.current = null;
+      }
+      if (streamRefS1.current) {
+        streamRefS1.current.getTracks().forEach(track => track.stop());
+        streamRefS1.current = null;
+      }
+      if (videoRefS1.current) {
+        videoRefS1.current = null;
       }
       setCameraReady(false);
       return;
     }
 
-    const initCamera = async () => {
+    const initCameras = async () => {
       const video = videoRef.current;
       if (!video) {
         console.log('Video element not ready yet');
@@ -247,24 +262,95 @@ export const MediaPlayer: React.FC = () => {
       }
 
       try {
-        console.log('Requesting camera access for ASAP Rocky track...');
+        console.log('Requesting camera access for s0 (front camera)...');
         
-        const stream = await navigator.mediaDevices.getUserMedia({
+        // Initialize s0 with front camera (facingMode: 'user') - maximum resolution for hyper realistic quality
+        const streamS0 = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: 'user',
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
+            width: { ideal: 1920, min: 1280 },
+            height: { ideal: 1080, min: 720 },
           },
           audio: false,
         });
 
-        console.log('Camera stream obtained:', stream);
-        streamRef.current = stream;
+        console.log('Camera stream s0 obtained:', streamS0);
+        streamRef.current = streamS0;
         
         video.autoplay = true;
         video.playsInline = true;
         video.muted = true;
-        video.srcObject = stream;
+        video.srcObject = streamS0;
+        
+        // Try to get a second camera for s1 (back camera or another device)
+        try {
+          console.log('Requesting camera access for s1 (back camera)...');
+          
+          // Create a hidden video element for s1 camera
+          const videoS1 = document.createElement('video');
+          videoS1.autoplay = true;
+          videoS1.playsInline = true;
+          videoS1.muted = true;
+          videoS1.style.display = 'none';
+          document.body.appendChild(videoS1);
+          videoRefS1.current = videoS1;
+          
+          // Try to get back camera (facingMode: 'environment') - maximum resolution for hyper realistic quality
+          const streamS1 = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: 'environment', // Back camera
+              width: { ideal: 1920, min: 1280 },
+              height: { ideal: 1080, min: 720 },
+            },
+            audio: false,
+          });
+
+          console.log('Camera stream s1 obtained:', streamS1);
+          streamRefS1.current = streamS1;
+          videoS1.srcObject = streamS1;
+          videoS1.play().catch(console.error);
+        } catch (s1Error: any) {
+          console.warn('Could not access second camera (s1), will use same camera:', s1Error);
+          // If back camera fails, try to enumerate devices and get a different one
+          try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const videoDevices = devices.filter(device => device.kind === 'videoinput');
+            console.log('Available video devices:', videoDevices);
+            
+            if (videoDevices.length > 1) {
+              // Try to get a different device by deviceId
+              const secondDevice = videoDevices.find(device => 
+                device.deviceId !== streamS0.getVideoTracks()[0].getSettings().deviceId
+              );
+              
+              if (secondDevice) {
+                const videoS1 = document.createElement('video');
+                videoS1.autoplay = true;
+                videoS1.playsInline = true;
+                videoS1.muted = true;
+                videoS1.style.display = 'none';
+                document.body.appendChild(videoS1);
+                videoRefS1.current = videoS1;
+                
+                const streamS1 = await navigator.mediaDevices.getUserMedia({
+                  video: {
+                    deviceId: { exact: secondDevice.deviceId },
+                    width: { ideal: 1920, min: 1280 },
+                    height: { ideal: 1080, min: 720 },
+                  },
+                  audio: false,
+                });
+                
+                console.log('Camera stream s1 obtained from alternate device:', streamS1);
+                streamRefS1.current = streamS1;
+                videoS1.srcObject = streamS1;
+                videoS1.play().catch(console.error);
+              }
+            }
+          } catch (enumError) {
+            console.warn('Could not enumerate devices:', enumError);
+          }
+        }
         
         setCameraError(null);
 
@@ -317,7 +403,7 @@ export const MediaPlayer: React.FC = () => {
     };
 
     const timer = setTimeout(() => {
-      initCamera();
+      initCameras();
     }, 100);
 
     return () => {
@@ -325,6 +411,17 @@ export const MediaPlayer: React.FC = () => {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
         streamRef.current = null;
+      }
+      if (streamRefS1.current) {
+        streamRefS1.current.getTracks().forEach(track => track.stop());
+        streamRefS1.current = null;
+      }
+      if (videoRefS1.current) {
+        videoRefS1.current.srcObject = null;
+        if (videoRefS1.current.parentElement) {
+          videoRefS1.current.parentElement.removeChild(videoRefS1.current);
+        }
+        videoRefS1.current = null;
       }
       if (updateIntervalRef.current) {
         clearInterval(updateIntervalRef.current);
@@ -346,33 +443,26 @@ export const MediaPlayer: React.FC = () => {
     const glow = params.get('glow');
     const layerBlend = params.get('layerBlend');
     const distortion = params.get('distortion');
+    const sourceToggle = Math.round(params.get('sourceToggle')); // 0 = s0, 1 = s1
+    
+    // Get the active source based on toggle
+    // s0 = front camera, s1 = back/alternate camera
+    const useS1 = sourceToggle === 1 && window.s1;
     
     // Nested reflection effect:
     // 1. Outer reflection: inverted, full screen (background)
     // 2. Inner reflection: inverted, smaller, centered (contained within outer)
     // 3. Combine them with the outer as base
     
-    // Step 1: Create outer reflection - inverted vertically, full screen (background)
-    const outerReflection = window.src(window.s0)
-      .scale(1, -1) // Invert outer scene vertically (full screen)
-      .color(1, 0.7 + warmth * 0.3, 0.3 + warmth * 0.4) // Warm tones
-      .saturate(0.8 + warmth * 0.4)
-      .contrast(1.2 + glow * 0.3)
-      .brightness(0.1 + glow * 0.2);
-    
-    // Step 2: Create inner reflection - inverted, smaller, centered (contained reflection)
-    const innerReflection = window.src(window.s0)
-      .scale(0.5, -0.5) // Make smaller (50%) and invert vertically
-      .scrollY(0.0) // Center vertically
-      .scrollX(0.0) // Center horizontally
-      .color(1, 0.7 + warmth * 0.3, 0.3 + warmth * 0.4) // Warm tones
-      .saturate(0.8 + warmth * 0.4)
-      .contrast(1.2 + glow * 0.3)
-      .brightness(0.1 + glow * 0.2);
-    
-    // Step 3: Combine - outer inverted reflection as base, inner inverted reflection on top
-    outerReflection
-      .blend(innerReflection, layerBlend * 0.9)
+    // Create completely blue effect - similar to how first effect is completely purple
+    // Completely inverted (180° rotation), full screen - floor on top
+    const outerSource = useS1 ? window.s1 : window.s0;
+    window.src(outerSource)
+      .scale(-1, -1) // Invert both axes (180° rotation) - floor on top
+      .color(0.2, 0.3, 1.0) // Completely blue - strong blue channel, minimal red/green
+      .saturate(2.0) // High saturation for vibrant blue
+      .contrast(2.0) // Increased contrast for darker, more dramatic effect
+      .brightness(0.5) // Reduced brightness for darker look
       .out(window.o0);
   }, []);
 
@@ -386,10 +476,16 @@ export const MediaPlayer: React.FC = () => {
     const blockyArtifacts = params.get('blockyArtifacts');
     const glitchDist = params.get('glitchDistortion');
     const goldTint = params.get('goldTint');
+    const sourceToggle = Math.round(params.get('sourceToggle')); // 0 = s0, 1 = s1
+    
+    // Get the active source based on toggle
+    // s0 = front camera, s1 = back/alternate camera
+    const useS1 = sourceToggle === 1 && window.s1;
+    const activeSource = useS1 ? window.s1 : window.s0;
     
     const pixelScale = 0.05 + (1 - pixelation) * 0.25;
     
-    window.src(window.s0)
+    window.src(activeSource)
       .scale(pixelScale, pixelScale)
       .scale(1 / pixelScale, 1 / pixelScale)
       .thresh(0.5)
@@ -403,7 +499,7 @@ export const MediaPlayer: React.FC = () => {
       .scale(10, 10)
       .thresh(0.5);
     
-    const pinkOverlay = window.src(window.s0)
+    const pinkOverlay = window.src(activeSource)
       .color(1, 0.2, 0.8)
       .saturate(3)
       .brightness(0.5)
@@ -451,9 +547,10 @@ export const MediaPlayer: React.FC = () => {
       .out(window.o0);
   }, []);
 
-  // Initialize Hydra when camera tracks are playing and camera is ready
+  // Initialize Hydra when camera tracks are selected and camera is ready
+  // Note: We initialize Hydra even when not playing, so effects are ready when user hits play
   useEffect(() => {
-    if ((!isASAPRockyTrack && !isWarmReflectiveTrack) || !cameraReady || !isPlaying) {
+    if ((!isASAPRockyTrack && !isWarmReflectiveTrack) || !cameraReady) {
       // No interval to clean up - we only apply effects once
       if (updateIntervalRef.current) {
         clearInterval(updateIntervalRef.current);
@@ -512,7 +609,35 @@ export const MediaPlayer: React.FC = () => {
               // For video elements, use init({ src: video }) - this handles live video streams
               // Do NOT use initImage() with video elements as it expects a URL string or Image element
               window.s0.init({ src: video });
-              console.log('Initialized s0 with init({ src: video })');
+              console.log('Initialized s0 with front camera');
+              
+              // Initialize s1 with the second camera (back camera or alternate device)
+              if (window.s1 && videoRefS1.current) {
+                const videoS1 = videoRefS1.current;
+                if (videoS1.readyState >= 2 && videoS1.videoWidth > 0) {
+                  try {
+                    window.s1.init({ src: videoS1 });
+                    console.log('Initialized s1 with back/alternate camera');
+                  } catch (e) {
+                    console.warn('Could not initialize s1:', e);
+                  }
+                } else {
+                  // Wait for s1 video to be ready
+                  const waitForS1 = () => {
+                    if (videoS1.readyState >= 2 && videoS1.videoWidth > 0) {
+                      try {
+                        window.s1.init({ src: videoS1 });
+                        console.log('Initialized s1 with back/alternate camera (delayed)');
+                      } catch (e) {
+                        console.warn('Could not initialize s1:', e);
+                      }
+                    } else {
+                      setTimeout(waitForS1, 100);
+                    }
+                  };
+                  waitForS1();
+                }
+              }
               
               // Use requestAnimationFrame for better timing instead of setTimeout
               requestAnimationFrame(() => {
@@ -583,7 +708,42 @@ export const MediaPlayer: React.FC = () => {
       }
       // No interval to clean up - we only apply effects once
     };
-  }, [isASAPRockyTrack, isWarmReflectiveTrack, cameraReady, isPlaying, applySurrealGlitch, applyWarmReflective]);
+  }, [isASAPRockyTrack, isWarmReflectiveTrack, cameraReady, applySurrealGlitch, applyWarmReflective]);
+
+  // Keyboard shortcut to toggle between s0 and s1
+  useEffect(() => {
+    if (!paramsRef.current) return;
+
+    const handleKeyPress = (e: KeyboardEvent) => {
+      // Press 'S' key to toggle between s0 and s1
+      if (e.key === 's' || e.key === 'S') {
+        e.preventDefault(); // Prevent default behavior
+        const currentToggle = paramsRef.current?.get('sourceToggle') || 0;
+        const newToggle = currentToggle === 0 ? 1 : 0;
+        paramsRef.current?.set('sourceToggle', newToggle);
+        
+        // Clear the output first to force reapplication
+        if (window.o0) {
+          try {
+            // Reapply the current effect with the new source
+            if (isASAPRockyTrack) {
+              applySurrealGlitch();
+            } else if (isWarmReflectiveTrack) {
+              applyWarmReflective();
+            }
+            console.log(`Switched to source: ${newToggle === 0 ? 's0 (front camera)' : 's1 (back/alternate camera)'}`);
+          } catch (error) {
+            console.error('Error reapplying effect:', error);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => {
+      window.removeEventListener('keydown', handleKeyPress);
+    };
+  }, [isASAPRockyTrack, isWarmReflectiveTrack, applySurrealGlitch, applyWarmReflective]);
 
   // Sync canvas size with video dimensions
   useEffect(() => {
@@ -595,7 +755,12 @@ export const MediaPlayer: React.FC = () => {
 
     const updateCanvasSize = () => {
       if (video.videoWidth > 0 && video.videoHeight > 0) {
-        // Set canvas to fill container while maintaining aspect ratio
+        // For hyper realistic quality, use actual video resolution for canvas
+        // This ensures no downscaling and maximum sharpness
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        
+        // Set CSS size to fill container while maintaining aspect ratio
         const container = canvas.parentElement;
         if (container) {
           const containerWidth = container.clientWidth;
@@ -605,17 +770,13 @@ export const MediaPlayer: React.FC = () => {
           
           if (containerAspect > videoAspect) {
             // Container is wider - fit to height
-            canvas.height = containerHeight;
-            canvas.width = containerHeight * videoAspect;
+            canvas.style.width = 'auto';
+            canvas.style.height = '100%';
           } else {
             // Container is taller - fit to width
-            canvas.width = containerWidth;
-            canvas.height = containerWidth / videoAspect;
+            canvas.style.width = '100%';
+            canvas.style.height = 'auto';
           }
-        } else {
-          // Fallback to video dimensions
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
         }
       }
     };
@@ -680,66 +841,55 @@ export const MediaPlayer: React.FC = () => {
         {/* Visualizer and Controls */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
           {/* Visualizer or Camera */}
-          <div style={{ flex: 1, minHeight: '150px', background: '#000000' }}>
+          <div style={{ flex: 1, minHeight: '150px', background: '#000000', position: 'relative', overflow: 'hidden' }}>
+            {/* Always render video and canvas elements so refs are available on first load */}
+            {/* Video element for camera feed - always in DOM */}
+            <video
+              ref={videoRef}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: showCamera && isCameraNoEffectsTrack ? '100%' : 0,
+                height: showCamera && isCameraNoEffectsTrack ? '100%' : 0,
+                maxWidth: '100%',
+                maxHeight: '100%',
+                opacity: showCamera && isCameraNoEffectsTrack ? 1 : 0,
+                pointerEvents: 'none',
+                objectFit: 'contain',
+                zIndex: 1,
+              }}
+              controls={false}
+              playsInline
+              muted
+              autoPlay
+            />
+            {/* Canvas element for Hydra effects - always in DOM */}
+            <canvas
+              ref={canvasRef}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: showCamera && !isCameraNoEffectsTrack && !cameraError ? '100%' : 0,
+                height: showCamera && !isCameraNoEffectsTrack && !cameraError ? '100%' : 0,
+                opacity: showCamera && !isCameraNoEffectsTrack && !cameraError ? 1 : 0,
+                objectFit: 'cover',
+                zIndex: 1,
+              }}
+            />
             {showCamera ? (
               // Camera feed (with or without effects depending on track)
               <>
-                <div style={{ padding: '4px', background: '#1a1a1a', borderBottom: '1px solid #000000', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ fontSize: '10px', color: '#cccccc' }}>
-                    {isASAPRockyTrack 
-                      ? 'Front Camera - Surreal Glitch Effect' 
-                      : isWarmReflectiveTrack 
-                        ? 'Front Camera - Warm Reflective Effect'
-                        : 'Front Camera - Raw Feed'}
-                  </span>
-                </div>
                 {cameraError ? (
-                  <div style={{ padding: '20px', textAlign: 'center', color: '#ffffff', height: 'calc(100% - 30px)' }}>
+                  <div style={{ padding: '20px', textAlign: 'center', color: '#ffffff', height: '100%' }}>
                     <div style={{ fontSize: '24px', marginBottom: '8px' }}>📷</div>
                     <div style={{ fontSize: '10px', color: '#cccccc' }}>{cameraError}</div>
                   </div>
-                ) : isCameraNoEffectsTrack ? (
-                  // Raw camera feed without effects
-                  <div style={{ height: 'calc(100% - 30px)', width: '100%', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <video
-                      ref={videoRef}
-                      style={{
-                        maxWidth: '100%',
-                        maxHeight: '100%',
-                        width: 'auto',
-                        height: 'auto',
-                      }}
-                      controls={false}
-                      playsInline
-                      muted
-                      autoPlay
-                    />
-                  </div>
                 ) : (
-                  // Camera with Hydra effects for ASAP Rocky track
-                  <div style={{ height: 'calc(100% - 30px)', width: '100%', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <video
-                      ref={videoRef}
-                      style={{
-                        position: 'absolute',
-                        width: 0,
-                        height: 0,
-                        opacity: 0,
-                        pointerEvents: 'none',
-                      }}
-                      controls={false}
-                      playsInline
-                      muted
-                      autoPlay
-                    />
-                    <canvas
-                      ref={canvasRef}
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover',
-                      }}
-                    />
+                  // Container for positioning - video and canvas are rendered above
+                  <div style={{ height: '100%', width: '100%', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {/* Video and canvas are rendered above, outside conditionals */}
                   </div>
                 )}
               </>
@@ -843,7 +993,7 @@ export const MediaPlayer: React.FC = () => {
           </div>
         </div>
 
-        {/* Playlist */}
+        {/* Playlist - always visible */}
         <Playlist
           tracks={playlist}
           currentTrackIndex={currentTrack}
@@ -853,8 +1003,6 @@ export const MediaPlayer: React.FC = () => {
               audioRef.current.currentTime = 0;
             }
           }}
-          isCollapsed={isPlaylistCollapsed}
-          onToggleCollapse={() => setIsPlaylistCollapsed(!isPlaylistCollapsed)}
         />
       </div>
 

@@ -46,7 +46,7 @@ export const Desktop: React.FC = () => {
     if (icon) {
       // Set default URL for Internet Explorer
       const defaultUrl = icon.windowType === 'internet-explorer' 
-        ? 'https://www.youtube.com/watch?v=NI2mXlykECU&list=RDNI2mXlykECU&start_radio=1'
+        ? 'https://www.youtube.com/watch?v=LXOr65OZ-Ac'
         : undefined;
       openWindow(icon.windowType, icon.label, icon.icon, defaultUrl);
     }
