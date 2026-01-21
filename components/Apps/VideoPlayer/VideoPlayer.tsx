@@ -12,8 +12,8 @@ export const VideoPlayer: React.FC = () => {
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Video source
-  const videoSrc = '/videos/1.mov';
+  // Video source (compressed for web deployment)
+  const videoSrc = '/videos/1_compressed.mp4';
 
   useEffect(() => {
     const video = videoRef.current;

@@ -164,7 +164,7 @@ export const useWindowStore = create<WindowStore>((set, get) => ({
         id: 'track1',
         title: 'A$AP Rocky - Wassup',
         artist: 'A$AP Rocky',
-        url: '/audio/04. A$AP Rocky - Wassup.flac',
+        url: '/audio/04. A$AP Rocky - Wassup.mp3',
       },
       {
         id: 'track2',
