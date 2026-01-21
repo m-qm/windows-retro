@@ -27,6 +27,7 @@ declare global {
 export const MediaPlayer: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const mediaVideoRef = useRef<HTMLVideoElement>(null); // For video file playback
   const videoRefS1 = useRef<HTMLVideoElement | null>(null); // Second video element for s1 camera
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const hydraRef = useRef<any>(null);
@@ -106,6 +107,10 @@ export const MediaPlayer: React.FC = () => {
     if (title.includes('Visages') || title.includes('The Hidden Valley') || (url && url.includes('Visajes The Hidden Valley.mp3'))) {
       return 'camera-warm-reflective';
     }
+    // Video file
+    if (url && (url.includes('.mp4') || url.includes('.mov') || url.includes('.webm'))) {
+      return 'video';
+    }
     // Others: Regular visualizer
     return 'visualizer';
   }, [currentTrack, currentTrackData?.id]);
@@ -113,44 +118,68 @@ export const MediaPlayer: React.FC = () => {
   const isASAPRockyTrack = trackType === 'camera-surreal-glitch';
   const isCameraNoEffectsTrack = trackType === 'camera-no-effects';
   const isWarmReflectiveTrack = trackType === 'camera-warm-reflective';
+  const isVideoTrack = trackType === 'video';
   const showCamera = isASAPRockyTrack || isCameraNoEffectsTrack || isWarmReflectiveTrack;
 
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio) return;
+    const mediaVideo = mediaVideoRef.current;
 
-    const updateTime = () => setCurrentTime(audio.currentTime);
-    const updateDuration = () => setDuration(audio.duration || 0);
+    const updateTimeAudio = () => setCurrentTime(audio?.currentTime || 0);
+    const updateDurationAudio = () => setDuration(audio?.duration || 0);
+    const updateTimeVideo = () => setCurrentTime(mediaVideo?.currentTime || 0);
+    const updateDurationVideo = () => setDuration(mediaVideo?.duration || 0);
     const handleEnded = () => {
       if (isRepeating) {
-        audio.currentTime = 0;
-        audio.play();
+        if (isVideoTrack && mediaVideo) {
+          mediaVideo.currentTime = 0;
+          mediaVideo.play();
+        } else if (audio) {
+          audio.currentTime = 0;
+          audio.play();
+        }
       } else {
         useWindowStore.getState().nextTrack();
       }
     };
 
-    audio.addEventListener('timeupdate', updateTime);
-    audio.addEventListener('loadedmetadata', updateDuration);
-    audio.addEventListener('ended', handleEnded);
+    if (audio) {
+      audio.addEventListener('timeupdate', updateTimeAudio);
+      audio.addEventListener('loadedmetadata', updateDurationAudio);
+      audio.addEventListener('ended', handleEnded);
+    }
+    
+    if (mediaVideo) {
+      mediaVideo.addEventListener('timeupdate', updateTimeVideo);
+      mediaVideo.addEventListener('loadedmetadata', updateDurationVideo);
+      mediaVideo.addEventListener('ended', handleEnded);
+    }
 
     return () => {
-      audio.removeEventListener('timeupdate', updateTime);
-      audio.removeEventListener('loadedmetadata', updateDuration);
-      audio.removeEventListener('ended', handleEnded);
+      if (audio) {
+        audio.removeEventListener('timeupdate', updateTimeAudio);
+        audio.removeEventListener('loadedmetadata', updateDurationAudio);
+        audio.removeEventListener('ended', handleEnded);
+      }
+      if (mediaVideo) {
+        mediaVideo.removeEventListener('timeupdate', updateTimeVideo);
+        mediaVideo.removeEventListener('loadedmetadata', updateDurationVideo);
+        mediaVideo.removeEventListener('ended', handleEnded);
+      }
     };
-  }, [isRepeating]);
+  }, [isRepeating, isVideoTrack]);
 
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio) return;
+    const mediaVideo = mediaVideoRef.current;
 
-    audio.volume = isMuted ? 0 : volume;
+    if (audio) audio.volume = isMuted ? 0 : volume;
+    if (mediaVideo) mediaVideo.volume = isMuted ? 0 : volume;
   }, [volume, isMuted]);
 
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio) return;
+    const mediaVideo = mediaVideoRef.current;
     
     // Get fresh track data from playlist to avoid stale references
     const track = playlist[currentTrack];
@@ -190,20 +219,42 @@ export const MediaPlayer: React.FC = () => {
       return;
     }
 
-    // Only set src if it's different to avoid unnecessary reloads
-    try {
-      const currentSrc = audio.src ? new URL(audio.src).pathname : '';
-      const newSrc = trackUrl;
-      
-      if (currentSrc !== newSrc) {
-        // Clear any existing source first
-        audio.src = '';
-        audio.src = trackUrl;
-        audio.load(); // Explicitly load the new source
+    // Check if this is a video file
+    const isVideo = trackUrl.includes('.mp4') || trackUrl.includes('.mov') || trackUrl.includes('.webm');
+    
+    if (isVideo && mediaVideo) {
+      // Set video source
+      try {
+        const currentSrc = mediaVideo.src ? new URL(mediaVideo.src).pathname : '';
+        if (currentSrc !== trackUrl) {
+          mediaVideo.src = trackUrl;
+          mediaVideo.load();
+        }
+      } catch (error) {
+        console.error('Error setting video source:', error, trackUrl);
       }
-    } catch (error) {
-      console.error('Error setting audio source:', error, trackUrl);
-      return;
+      // Pause audio if it was playing
+      if (audio) {
+        audio.pause();
+        audio.src = '';
+      }
+    } else if (audio) {
+      // Set audio source
+      try {
+        const currentSrc = audio.src ? new URL(audio.src).pathname : '';
+        if (currentSrc !== trackUrl) {
+          audio.src = '';
+          audio.src = trackUrl;
+          audio.load();
+        }
+      } catch (error) {
+        console.error('Error setting audio source:', error, trackUrl);
+        return;
+      }
+      // Pause video if it was playing
+      if (mediaVideo) {
+        mediaVideo.pause();
+      }
     }
     
     // Don't auto-play here - let the isPlaying useEffect handle playback
@@ -211,20 +262,36 @@ export const MediaPlayer: React.FC = () => {
 
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio) return;
+    const mediaVideo = mediaVideoRef.current;
+    const track = playlist[currentTrack];
+    const trackUrl = track?.url || '';
+    const isVideo = trackUrl.includes('.mp4') || trackUrl.includes('.mov') || trackUrl.includes('.webm');
 
     if (isPlaying) {
-      // If audio doesn't have a source yet, set it first
-      if (!audio.src || audio.src === window.location.href) {
-        const track = playlist[currentTrack];
-        if (track && typeof track.url === 'string') {
-          audio.src = track.url;
-          audio.load();
+      if (isVideo && mediaVideo) {
+        // Play video
+        if (!mediaVideo.src || new URL(mediaVideo.src).pathname !== trackUrl) {
+          mediaVideo.src = trackUrl;
+          mediaVideo.load();
         }
+        mediaVideo.play().catch(console.error);
+        // Pause audio
+        if (audio) audio.pause();
+      } else if (audio) {
+        // Play audio
+        if (!audio.src || audio.src === window.location.href) {
+          if (track && typeof track.url === 'string') {
+            audio.src = track.url;
+            audio.load();
+          }
+        }
+        audio.play().catch(console.error);
+        // Pause video
+        if (mediaVideo) mediaVideo.pause();
       }
-      audio.play().catch(console.error);
     } else {
-      audio.pause();
+      if (audio) audio.pause();
+      if (mediaVideo) mediaVideo.pause();
     }
   }, [isPlaying, currentTrack, playlist]);
 
@@ -792,10 +859,19 @@ export const MediaPlayer: React.FC = () => {
   }, [showCamera]);
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const audio = audioRef.current;
-    if (!audio) return;
     const newTime = parseFloat(e.target.value);
-    audio.currentTime = newTime;
+    
+    if (isVideoTrack) {
+      const mediaVideo = mediaVideoRef.current;
+      if (mediaVideo) {
+        mediaVideo.currentTime = newTime;
+      }
+    } else {
+      const audio = audioRef.current;
+      if (audio) {
+        audio.currentTime = newTime;
+      }
+    }
     setCurrentTime(newTime);
   };
 
@@ -878,7 +954,28 @@ export const MediaPlayer: React.FC = () => {
                 zIndex: 1,
               }}
             />
-            {showCamera ? (
+            {/* Video element for media video playback */}
+            <video
+              ref={mediaVideoRef}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: isVideoTrack ? '100%' : 0,
+                height: isVideoTrack ? '100%' : 0,
+                opacity: isVideoTrack ? 1 : 0,
+                objectFit: 'contain',
+                zIndex: 2,
+              }}
+              controls={false}
+              playsInline
+            />
+            {isVideoTrack ? (
+              // Video file playback
+              <div style={{ height: '100%', width: '100%', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {/* Video is rendered above */}
+              </div>
+            ) : showCamera ? (
               // Camera feed (with or without effects depending on track)
               <>
                 {cameraError ? (

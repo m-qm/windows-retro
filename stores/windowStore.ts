@@ -178,6 +178,12 @@ export const useWindowStore = create<WindowStore>((set, get) => ({
         artist: 'The Hidden Valley', 
         url: '/audio/Visajes The Hidden Valley.mp3',
       },
+      {
+        id: 'video1',
+        title: 'Video',
+        artist: 'Video File',
+        url: '/videos/1_compressed.mp4',
+      },
     ],
   },
 
