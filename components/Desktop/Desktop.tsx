@@ -27,7 +27,7 @@ const getWindowContent = (windowType: string, url?: string) => {
     case 'my-computer':
       return <MyComputer />;
     case 'internet-explorer':
-      return <InternetExplorer url={url} />;
+      return <InternetExplorer videoPath="/videos/2.mp4" />
     default:
       return <div>Unknown application</div>;
   }

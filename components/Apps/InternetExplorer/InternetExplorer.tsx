@@ -1,84 +1,133 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useWindowStore } from '@/stores/windowStore';
 
 interface InternetExplorerProps {
   url?: string;
+  videoPath?: string; // Path to video file in public folder (e.g., '/videos/my-video.mp4')
 }
 
-// Convert YouTube watch URL to embed URL format
-const convertYouTubeUrlToEmbed = (url: string): string => {
-  // Check if it's already an embed URL
-  if (url.includes('youtube.com/embed/')) {
-    return url;
-  }
-  
-  let videoId: string | null = null;
-  
-  // Extract video ID from youtu.be short URL
-  const youtuBeMatch = url.match(/youtu\.be\/([^?&]+)/);
-  if (youtuBeMatch) {
-    videoId = youtuBeMatch[1];
-  }
-  
-  // Extract video ID from watch URL if not found yet
-  if (!videoId) {
-    const watchMatch = url.match(/[?&]v=([^&]+)/);
-    if (watchMatch) {
-      videoId = watchMatch[1];
-    }
-  }
-  
-  if (videoId) {
-    // Extract list parameter if present
-    const listMatch = url.match(/[?&]list=([^&]+)/);
-    const listParam = listMatch ? `&list=${listMatch[1]}` : '';
-    // Extract start_radio parameter if present
-    const radioMatch = url.match(/[?&]start_radio=([^&]+)/);
-    const radioParam = radioMatch ? `&start_radio=${radioMatch[1]}` : '';
-    
-    return `https://www.youtube.com/embed/${videoId}${listParam || radioParam ? '?' : ''}${listParam}${radioParam}`.replace(/\?&/, '?').replace(/\?$/, '');
-  }
-  
-  // If it's not a YouTube URL or can't be converted, return as-is
-  return url;
-};
-
 export const InternetExplorer: React.FC<InternetExplorerProps> = ({ 
-    url = 'https://www.youtube.com/watch?v=LXOr65OZ-Ac'
+    url,
+    videoPath
 }) => {
-  // Convert YouTube URL to embed format if needed
-  const embedUrl = convertYouTubeUrlToEmbed(url);
+  const [displayUrl, setDisplayUrl] = useState<string>('');
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [volume, setVolume] = useState(1);
+  const [isMuted, setIsMuted] = useState(false);
+  
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const openWindow = useWindowStore((state) => state.openWindow);
-  const componentIdRef = useRef<string>(`ie-${Date.now()}-${Math.random()}`);
 
-  // Handle opening controls window manually
-  const handleOpenControls = () => {
-    // Use production URL for controls
-    const baseUrl = url.replace(/\/$/, '');
-    const controlsUrl = baseUrl + '/controls.html';
+  // Set display URL based on videoPath or url
+  useEffect(() => {
+    if (videoPath) {
+      // Extract filename from path for display
+      const fileName = videoPath.split('/').pop() || videoPath;
+      setDisplayUrl(fileName);
+    } else if (url) {
+      setDisplayUrl(url);
+    }
+  }, [videoPath, url]);
+
+  const isLocalVideo = !!videoPath;
+
+  // Update time and duration
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const updateTime = () => setCurrentTime(video.currentTime);
+    const updateDuration = () => setDuration(video.duration);
+    const handleEnded = () => setIsPlaying(false);
+
+    video.addEventListener('timeupdate', updateTime);
+    video.addEventListener('loadedmetadata', updateDuration);
+    video.addEventListener('ended', handleEnded);
+
+    return () => {
+      video.removeEventListener('timeupdate', updateTime);
+      video.removeEventListener('loadedmetadata', updateDuration);
+      video.removeEventListener('ended', handleEnded);
+    };
+  }, []);
+
+  // Sync volume
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video) {
+      video.volume = isMuted ? 0 : volume;
+    }
+  }, [volume, isMuted]);
+
+  // Handle play/pause
+  const togglePlay = () => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (isPlaying) {
+      video.pause();
+    } else {
+      video.play();
+    }
+    setIsPlaying(!isPlaying);
+  };
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const video = videoRef.current;
+    if (!video) return;
     
-    openWindow('internet-explorer', 'Internet Explorer - Controls', 'internet-explorer', controlsUrl);
+    const newTime = parseFloat(e.target.value);
+    video.currentTime = newTime;
+    setCurrentTime(newTime);
+  };
+
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setVolume(parseFloat(e.target.value));
+  };
+
+  const formatTime = (seconds: number) => {
+    if (isNaN(seconds)) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Handle opening controls window manually (only for web URLs)
+  const handleOpenControls = () => {
+    if (isLocalVideo) {
+      alert('Controls window is only available for web URLs');
+      return;
+    }
+    
+    if (url) {
+      const baseUrl = url.replace(/\/$/, '');
+      const controlsUrl = baseUrl + '/controls.html';
+      openWindow('internet-explorer', 'Internet Explorer - Controls', 'internet-explorer', controlsUrl);
+    }
   };
 
   useEffect(() => {
+    // Skip all window.open interception for local videos
+    if (isLocalVideo || !url) {
+      return;
+    }
+
     // Store original window.open
     const originalOpen = window.open;
-    const componentId = componentIdRef.current;
-    const baseUrl = embedUrl.replace(/\/$/, ''); // Remove trailing slash
+    const baseUrl = url.replace(/\/$/, '');
 
     // Override window.open to intercept popup requests
-    // This will catch popups that escape the sandbox or are called from the parent context
     const interceptedOpen = function(popupUrl?: string | URL, target?: string, features?: string) {
-      // Extract the URL string
       let urlString = '';
       if (popupUrl) {
         urlString = typeof popupUrl === 'string' ? popupUrl : popupUrl.toString();
       }
       
-      // Handle empty or undefined URLs - don't intercept these
       if (!urlString || urlString.trim() === '') {
         return originalOpen.call(window, popupUrl, target, features);
       }
@@ -87,14 +136,11 @@ export const InternetExplorer: React.FC<InternetExplorerProps> = ({
       if (urlString.startsWith('/')) {
         urlString = baseUrl + urlString;
       } else if (!urlString.includes('://') && !urlString.startsWith('#') && !urlString.startsWith('javascript:') && !urlString.startsWith('about:')) {
-        // Relative path without leading slash
         urlString = baseUrl + '/' + urlString;
       }
       
-      // Ensure we have the full absolute URL
       let finalUrl = urlString;
       if (!finalUrl.includes('://')) {
-        // If it's still relative, make it absolute
         if (finalUrl.startsWith('/')) {
           finalUrl = baseUrl + finalUrl;
         } else if (finalUrl) {
@@ -102,21 +148,17 @@ export const InternetExplorer: React.FC<InternetExplorerProps> = ({
         }
       }
       
-      // Skip if it's the same as the main URL
-      if (finalUrl === baseUrl || finalUrl === baseUrl + '/' || finalUrl === url || finalUrl === embedUrl) {
+      if (finalUrl === baseUrl || finalUrl === baseUrl + '/' || finalUrl === url) {
         return originalOpen.call(window, popupUrl, target, features);
       }
       
-      // Check if this is a popup from our iframe domain (especially controls.html)
       const isControlsPopup = finalUrl.includes('controls.html') || finalUrl.endsWith('/controls');
       const isOurDomain = finalUrl.includes('camera-effects.vercel.app') || 
                          (finalUrl.startsWith(baseUrl) && finalUrl !== baseUrl && finalUrl !== baseUrl + '/');
       
       if (isControlsPopup || isOurDomain) {
-        // Open in our window system as a full window (not a popup)
         console.log('Intercepting popup:', urlString, '-> Opening full window:', finalUrl);
         openWindow('internet-explorer', 'Internet Explorer - Controls', 'internet-explorer', finalUrl);
-        // Return a mock window object to prevent the browser popup
         return {
           closed: false,
           close: () => {},
@@ -126,23 +168,17 @@ export const InternetExplorer: React.FC<InternetExplorerProps> = ({
         } as unknown as Window;
       }
 
-      // For other URLs, use original behavior
       return originalOpen.call(window, popupUrl, target, features);
     };
 
-    // Override window.open
     window.open = interceptedOpen;
 
-    // Handle popup windows via postMessage
     const handleMessage = (event: MessageEvent) => {
-      // Accept messages from any origin (since we're loading external content)
       if (event.data && event.data.type === 'IE_POPUP_REQUEST') {
         let popupUrl = event.data.url;
         if (popupUrl) {
-          // The camera-effects app now sends the full absolute URL, but handle relative URLs as fallback
           let finalUrl = popupUrl;
           if (!popupUrl.includes('://')) {
-            // Handle relative URLs - convert to absolute using the base URL
             if (popupUrl.startsWith('/')) {
               finalUrl = baseUrl + popupUrl;
             } else if (!popupUrl.startsWith('#') && !popupUrl.startsWith('javascript:')) {
@@ -158,18 +194,6 @@ export const InternetExplorer: React.FC<InternetExplorerProps> = ({
 
     window.addEventListener('message', handleMessage);
 
-    // Monitor for popup windows by checking if new windows open
-    // Since we can't intercept cross-origin window.open calls directly,
-    // we'll use a combination of approaches
-    
-    // Track opened windows to detect popups
-    let openedWindows: Window[] = [];
-    const checkForNewWindows = setInterval(() => {
-      // This is a fallback - the main interception should work
-    }, 1000);
-
-    // Try to inject a script into the iframe to intercept window.open
-    // This only works for same-origin iframes, but we'll try anyway
     const iframe = iframeRef.current;
     if (iframe) {
       const tryInject = () => {
@@ -182,14 +206,12 @@ export const InternetExplorer: React.FC<InternetExplorerProps> = ({
                 window.open = function(url, target, features) {
                   const urlString = url || '';
                   console.log('Iframe window.open called:', urlString);
-                  // Send message to parent to open popup in our window system
                   if (window.parent && window.parent !== window) {
                     window.parent.postMessage({
                       type: 'IE_POPUP_REQUEST',
                       url: urlString
                     }, '*');
                   }
-                  // Return null to prevent the popup (we'll handle it ourselves)
                   return null;
                 };
               })();
@@ -197,134 +219,200 @@ export const InternetExplorer: React.FC<InternetExplorerProps> = ({
             iframe.contentDocument.head.appendChild(script);
           }
         } catch (e) {
-          // Cross-origin restriction - that's expected
-          // We'll rely on the global window.open override and manual button
+          // Cross-origin restriction - expected
         }
       };
 
-      // Try after iframe loads
       iframe.addEventListener('load', tryInject);
-      // Also try after a short delay in case the iframe loads asynchronously
       setTimeout(tryInject, 1000);
     }
 
     return () => {
-      // Restore original window.open
       if (window.open === interceptedOpen) {
         window.open = originalOpen;
       }
       window.removeEventListener('message', handleMessage);
-      if (checkForNewWindows) {
-        clearInterval(checkForNewWindows);
-      }
     };
-  }, [openWindow, embedUrl]);
+  }, [openWindow, url, isLocalVideo]);
 
   return (
-    <div style={{ 
-      width: '100%', 
-      height: '100%', 
-      display: 'flex', 
-      flexDirection: 'column',
-      backgroundColor: '#c0c0c0',
-      border: '2px inset #c0c0c0'
-    }}>
-      {/* Address Bar */}
-      <div style={{
+    <div
+      style={{
         display: 'flex',
-        alignItems: 'center',
-        padding: '4px',
-        backgroundColor: '#c0c0c0',
-        borderBottom: '1px solid #808080',
-        gap: '4px'
-      }}>
-        <span style={{ fontSize: '11px', fontFamily: 'MS Sans Serif', marginRight: '4px' }}>
-          Address:
-        </span>
-        <input
-          type="text"
-          value={url}
-          readOnly
-          style={{
-            flex: 1,
-            padding: '2px 4px',
-            border: '2px inset #c0c0c0',
-            backgroundColor: '#ffffff',
-            fontFamily: 'MS Sans Serif',
-            fontSize: '11px',
-            outline: 'none'
-          }}
-        />
-        <button
-          style={{
-            padding: '2px 8px',
-            border: '2px outset #c0c0c0',
-            backgroundColor: '#c0c0c0',
-            fontFamily: 'MS Sans Serif',
-            fontSize: '11px',
-            cursor: 'pointer',
-            marginRight: '4px'
-          }}
-          onClick={() => window.open(url, '_blank')}
-        >
-          Go
-        </button>
-        <button
-          style={{
-            padding: '2px 8px',
-            border: '2px outset #c0c0c0',
-            backgroundColor: '#c0c0c0',
-            fontFamily: 'MS Sans Serif',
-            fontSize: '11px',
-            cursor: 'pointer',
-            marginRight: '4px'
-          }}
-          onClick={handleOpenControls}
-          title="Open Controls Window"
-        >
-          Controls
-        </button>
-        <button
-          style={{
-            padding: '2px 8px',
-            border: '2px outset #c0c0c0',
-            backgroundColor: '#c0c0c0',
-            fontFamily: 'MS Sans Serif',
-            fontSize: '11px',
-            cursor: 'pointer'
-          }}
-          onClick={() => {
-            // Open the original YouTube watch URL in a new tab to see comments
-            window.open(url, '_blank');
-          }}
-          title="Open in YouTube (to see comments)"
-        >
-          View on YouTube
-        </button>
+        flexDirection: 'column',
+        height: '100%',
+        background: 'linear-gradient(to bottom, #2a2a2a, #1a1a1a)',
+        color: '#ffffff',
+      }}
+    >
+      {/* Title Bar */}
+      <div
+        style={{
+          padding: '12px',
+          background: '#1a1a1a',
+          borderBottom: '1px solid #000000',
+        }}
+      >
+        <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>
+          {displayUrl || 'No video loaded'}
+        </div>
+        <div style={{ fontSize: '10px', color: '#888888' }}>
+          {isLocalVideo ? 'Local Video' : 'Web Content'}
+        </div>
       </div>
 
-      {/* Browser Content */}
-      <div style={{ 
-        flex: 1, 
-        position: 'relative',
-        overflow: 'hidden',
-        backgroundColor: '#ffffff'
-      }}>
-        <iframe
-          ref={iframeRef}
-          src={embedUrl}
-          style={{
-            width: '100%',
-            height: '100%',
-            border: 'none',
-            display: 'block'
-          }}
-          title="Internet Explorer"
-          allow="camera; microphone; geolocation"
-          sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals allow-downloads allow-popups-to-escape-sandbox"
-        />
+      {/* Main Content Area */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {/* Video/Content Display */}
+        <div style={{ flex: 1, minHeight: '200px', background: '#000000', position: 'relative', overflow: 'hidden' }}>
+          {isLocalVideo ? (
+            <video
+              ref={videoRef}
+              src={videoPath}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'contain',
+              }}
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+            />
+          ) : url ? (
+            <iframe
+              ref={iframeRef}
+              src={url}
+              style={{
+                width: '100%',
+                height: '100%',
+                border: 'none',
+                display: 'block'
+              }}
+              title="Internet Explorer"
+              allow="camera; microphone; geolocation"
+              sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals allow-downloads allow-popups-to-escape-sandbox"
+            />
+          ) : (
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              height: '100%',
+              color: '#888888',
+              fontSize: '14px'
+            }}>
+              No content loaded
+            </div>
+          )}
+        </div>
+
+        {isLocalVideo && (
+          <>
+            {/* Seek Bar */}
+            <div style={{ padding: '8px', background: '#1a1a1a' }}>
+              <input
+                type="range"
+                min="0"
+                max={duration || 0}
+                value={currentTime}
+                onChange={handleSeek}
+                style={{ width: '100%' }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', marginTop: '4px', color: '#888888' }}>
+                <span>{formatTime(currentTime)}</span>
+                <span>{formatTime(duration)}</span>
+              </div>
+            </div>
+
+            {/* Controls */}
+            <div style={{ 
+              padding: '8px', 
+              background: '#1a1a1a', 
+              borderTop: '1px solid #000000',
+              display: 'flex',
+              justifyContent: 'center',
+              gap: '8px'
+            }}>
+              <button
+                className="win-button"
+                onClick={togglePlay}
+                style={{ fontSize: '12px', padding: '4px 12px' }}
+              >
+                {isPlaying ? '⏸' : '▶'}
+              </button>
+              <button
+                className="win-button"
+                onClick={() => {
+                  const video = videoRef.current;
+                  if (video) {
+                    video.pause();
+                    video.currentTime = 0;
+                    setIsPlaying(false);
+                  }
+                }}
+                style={{ fontSize: '12px', padding: '4px 12px' }}
+              >
+                ⏹
+              </button>
+            </div>
+
+            {/* Volume Control */}
+            <div style={{ 
+              padding: '8px', 
+              background: '#1a1a1a', 
+              borderTop: '1px solid #000000', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '8px' 
+            }}>
+              <button
+                className="win-button"
+                onClick={() => setIsMuted(!isMuted)}
+                style={{ fontSize: '12px', padding: '2px 6px' }}
+              >
+                {isMuted ? '🔇' : '🔊'}
+              </button>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value={volume}
+                onChange={handleVolumeChange}
+                style={{ flex: 1 }}
+              />
+              <span style={{ fontSize: '10px', minWidth: '40px', textAlign: 'right' }}>
+                {Math.round(volume * 100)}%
+              </span>
+            </div>
+          </>
+        )}
+
+        {!isLocalVideo && url && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            padding: '8px',
+            backgroundColor: '#1a1a1a',
+            borderTop: '1px solid #000000',
+            gap: '8px'
+          }}>
+            <button
+              className="win-button"
+              onClick={() => window.open(url, '_blank')}
+              style={{ fontSize: '10px', padding: '4px 8px' }}
+            >
+              Open in New Tab
+            </button>
+            <button
+              className="win-button"
+              onClick={handleOpenControls}
+              style={{ fontSize: '10px', padding: '4px 8px' }}
+            >
+              Controls
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
 };
-
