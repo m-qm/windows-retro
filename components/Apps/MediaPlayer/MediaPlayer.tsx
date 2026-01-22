@@ -56,35 +56,35 @@ export const MediaPlayer: React.FC = () => {
   } = useWindowStore();
 
   const { currentTrack, isPlaying, volume, isMuted, isShuffled, isRepeating, playlist } = mediaPlayerState;
-  
-  
+
+
   // Safely get current track data with validation
   const currentTrackData = useMemo(() => {
     const track = playlist[currentTrack];
     if (!track) return null;
-    
+
     // Validate that URL is a string and not an object/video element
     if (track.url && typeof track.url !== 'string') {
       console.error('Invalid track URL type detected:', typeof track.url, track);
       // Return a safe copy with empty URL to prevent errors
       return { ...track, url: '' };
     }
-    
+
     // Additional check: ensure URL doesn't contain object references
     if (typeof track.url === 'string' && (track.url.includes('[object') || track.url.includes('HTMLVideoElement'))) {
       console.error('Track URL contains object reference:', track.url);
       return { ...track, url: '' };
     }
-    
+
     return track;
   }, [playlist, currentTrack]);
-  
+
   // Determine track type - memoized to prevent infinite loops
   const trackType = useMemo(() => {
     if (!currentTrackData) return 'visualizer';
-    
+
     const title = String(currentTrackData.title || '');
-    
+
     // Safely get URL - ensure it's always a string and never an object
     let url = '';
     if (typeof currentTrackData.url === 'string') {
@@ -94,7 +94,7 @@ export const MediaPlayer: React.FC = () => {
       console.warn('Track URL is not a string, skipping URL-based detection:', typeof currentTrackData.url);
       url = '';
     }
-    
+
     // Track 1: ASAP Rocky - Camera with surrealGlitch effects
     if (title.includes('A$AP Rocky') || title.includes('Wassup') || (url && url.includes('Wassup'))) {
       return 'camera-surreal-glitch';
@@ -114,7 +114,7 @@ export const MediaPlayer: React.FC = () => {
     // Others: Regular visualizer
     return 'visualizer';
   }, [currentTrack, currentTrackData?.id]);
-  
+
   const isASAPRockyTrack = trackType === 'camera-surreal-glitch';
   const isCameraNoEffectsTrack = trackType === 'camera-no-effects';
   const isWarmReflectiveTrack = trackType === 'camera-warm-reflective';
@@ -148,7 +148,7 @@ export const MediaPlayer: React.FC = () => {
       audio.addEventListener('loadedmetadata', updateDurationAudio);
       audio.addEventListener('ended', handleEnded);
     }
-    
+
     if (mediaVideo) {
       mediaVideo.addEventListener('timeupdate', updateTimeVideo);
       mediaVideo.addEventListener('loadedmetadata', updateDurationVideo);
@@ -180,7 +180,7 @@ export const MediaPlayer: React.FC = () => {
   useEffect(() => {
     const audio = audioRef.current;
     const mediaVideo = mediaVideoRef.current;
-    
+
     // Get fresh track data from playlist to avoid stale references
     const track = playlist[currentTrack];
     if (!track || !track.url) {
@@ -190,29 +190,29 @@ export const MediaPlayer: React.FC = () => {
 
     // Ensure url is a string, not an object or video element
     let trackUrl: string = '';
-    
+
     // Strict type checking
     if (typeof track.url !== 'string') {
       console.error('Track URL is not a string:', track.url, typeof track.url, track);
       return;
     }
-    
+
     trackUrl = track.url.trim();
-    
+
     if (!trackUrl || trackUrl.length === 0) {
       console.error('Track URL is empty');
       return;
     }
-    
+
     // Additional safety checks - reject any non-string values
-    if (trackUrl.includes('[object') || 
-        trackUrl.includes('HTMLVideoElement') || 
-        trackUrl.includes('HTMLAudioElement') ||
-        trackUrl.startsWith('object')) {
+    if (trackUrl.includes('[object') ||
+      trackUrl.includes('HTMLVideoElement') ||
+      trackUrl.includes('HTMLAudioElement') ||
+      trackUrl.startsWith('object')) {
       console.error('Invalid track URL detected (contains object reference):', trackUrl);
       return;
     }
-    
+
     // Ensure it's a valid path (starts with /)
     if (!trackUrl.startsWith('/')) {
       console.error('Track URL does not start with /:', trackUrl);
@@ -221,7 +221,7 @@ export const MediaPlayer: React.FC = () => {
 
     // Check if this is a video file
     const isVideo = trackUrl.includes('.mp4') || trackUrl.includes('.mov') || trackUrl.includes('.webm');
-    
+
     if (isVideo && mediaVideo) {
       // Set video source
       try {
@@ -256,7 +256,7 @@ export const MediaPlayer: React.FC = () => {
         mediaVideo.pause();
       }
     }
-    
+
     // Don't auto-play here - let the isPlaying useEffect handle playback
   }, [currentTrack, playlist]);
 
@@ -330,7 +330,7 @@ export const MediaPlayer: React.FC = () => {
 
       try {
         console.log('Requesting camera access for s0 (front camera)...');
-        
+
         // Initialize s0 with front camera (facingMode: 'user') - maximum resolution for hyper realistic quality
         const streamS0 = await navigator.mediaDevices.getUserMedia({
           video: {
@@ -343,16 +343,16 @@ export const MediaPlayer: React.FC = () => {
 
         console.log('Camera stream s0 obtained:', streamS0);
         streamRef.current = streamS0;
-        
+
         video.autoplay = true;
         video.playsInline = true;
         video.muted = true;
         video.srcObject = streamS0;
-        
+
         // Try to get a second camera for s1 (back camera or another device)
         try {
           console.log('Requesting camera access for s1 (back camera)...');
-          
+
           // Create a hidden video element for s1 camera
           const videoS1 = document.createElement('video');
           videoS1.autoplay = true;
@@ -361,7 +361,7 @@ export const MediaPlayer: React.FC = () => {
           videoS1.style.display = 'none';
           document.body.appendChild(videoS1);
           videoRefS1.current = videoS1;
-          
+
           // Try to get back camera (facingMode: 'environment') - maximum resolution for hyper realistic quality
           const streamS1 = await navigator.mediaDevices.getUserMedia({
             video: {
@@ -383,13 +383,13 @@ export const MediaPlayer: React.FC = () => {
             const devices = await navigator.mediaDevices.enumerateDevices();
             const videoDevices = devices.filter(device => device.kind === 'videoinput');
             console.log('Available video devices:', videoDevices);
-            
+
             if (videoDevices.length > 1) {
               // Try to get a different device by deviceId
-              const secondDevice = videoDevices.find(device => 
+              const secondDevice = videoDevices.find(device =>
                 device.deviceId !== streamS0.getVideoTracks()[0].getSettings().deviceId
               );
-              
+
               if (secondDevice) {
                 const videoS1 = document.createElement('video');
                 videoS1.autoplay = true;
@@ -398,7 +398,7 @@ export const MediaPlayer: React.FC = () => {
                 videoS1.style.display = 'none';
                 document.body.appendChild(videoS1);
                 videoRefS1.current = videoS1;
-                
+
                 const streamS1 = await navigator.mediaDevices.getUserMedia({
                   video: {
                     deviceId: { exact: secondDevice.deviceId },
@@ -407,7 +407,7 @@ export const MediaPlayer: React.FC = () => {
                   },
                   audio: false,
                 });
-                
+
                 console.log('Camera stream s1 obtained from alternate device:', streamS1);
                 streamRefS1.current = streamS1;
                 videoS1.srcObject = streamS1;
@@ -418,7 +418,7 @@ export const MediaPlayer: React.FC = () => {
             console.warn('Could not enumerate devices:', enumError);
           }
         }
-        
+
         setCameraError(null);
 
         await new Promise<void>((resolve, reject) => {
@@ -445,7 +445,7 @@ export const MediaPlayer: React.FC = () => {
               setTimeout(checkReady, 50);
             }
           };
-          
+
           video.addEventListener('loadedmetadata', checkReady, { once: true });
           video.addEventListener('loadeddata', checkReady, { once: true });
           checkReady();
@@ -453,7 +453,7 @@ export const MediaPlayer: React.FC = () => {
       } catch (error: any) {
         console.error('Error accessing camera:', error);
         let errorMsg = 'Failed to access camera';
-        
+
         if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
           errorMsg = 'Camera permission denied. Please allow camera access.';
         } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
@@ -463,7 +463,7 @@ export const MediaPlayer: React.FC = () => {
         } else if (error.message) {
           errorMsg = error.message;
         }
-        
+
         setCameraError(errorMsg);
         setCameraReady(false);
       }
@@ -511,16 +511,16 @@ export const MediaPlayer: React.FC = () => {
     const layerBlend = params.get('layerBlend');
     const distortion = params.get('distortion');
     const sourceToggle = Math.round(params.get('sourceToggle')); // 0 = s0, 1 = s1
-    
+
     // Get the active source based on toggle
     // s0 = front camera, s1 = back/alternate camera
     const useS1 = sourceToggle === 1 && window.s1;
-    
+
     // Nested reflection effect:
     // 1. Outer reflection: inverted, full screen (background)
     // 2. Inner reflection: inverted, smaller, centered (contained within outer)
     // 3. Combine them with the outer as base
-    
+
     // Create completely blue effect - similar to how first effect is completely purple
     // Completely inverted (180° rotation), full screen - floor on top
     const outerSource = useS1 ? window.s1 : window.s0;
@@ -552,12 +552,13 @@ export const MediaPlayer: React.FC = () => {
     
     const pixelScale = 0.05 + (1 - pixelation) * 0.25;
     
+    // Enhance visibility in low light conditions
     window.src(activeSource)
       .scale(pixelScale, pixelScale)
       .scale(1 / pixelScale, 1 / pixelScale)
-      .thresh(0.5)
-      .contrast(params.get('contrast') * 1.5)
-      .saturate(params.get('saturation') * 1.3)
+      .thresh(0.3) // Lower threshold to capture more detail in dark scenes
+      .contrast(params.get('contrast') * 0.5) // Moderate contrast
+      .saturate(params.get('saturation') * 0.5)
       .out(window.o1);
     
     const pinkMask = window.noise(0.3)
@@ -565,14 +566,13 @@ export const MediaPlayer: React.FC = () => {
       .scale(0.1, 0.1)
       .scale(10, 10)
       .thresh(0.5);
-    
+
     const pinkOverlay = window.src(activeSource)
       .color(1, 0.2, 0.8)
       .saturate(3)
-      .brightness(0.5)
-      .thresh(0.4)
+      .thresh(0.3) // Lower threshold for dark scenes
       .mask(pinkMask);
-    
+
     const currentTime = window.time ?? 0;
     const blockyNoise = window.noise(0.2)
       .thresh(0.4 + blockyArtifacts * 0.4)
@@ -581,35 +581,33 @@ export const MediaPlayer: React.FC = () => {
       .thresh(0.5)
       .scrollY(currentTime * 0.2)
       .scrollX(currentTime * 0.15);
-    
+
     const glitchLines = window.noise(100)
       .thresh(0.95)
       .scale(0.01, 0.01)
       .scale(100, 100)
       .thresh(0.9)
       .scrollY(currentTime * 1.5);
-    
+
     const framePersistence = 0.85 + (1 - goldTint) * 0.1;
-    
+
     const squareDistort = window.noise(0.5)
       .thresh(0.7)
       .scale(0.05, 0.05)
       .scale(20, 20)
       .thresh(0.8);
-    
+
     window.src(window.o1)
       .layer(pinkOverlay, pinkSplash)
       .modulate(blockyNoise, blockyArtifacts * 0.4)
       .modulate(glitchLines, glitchDist * 0.15)
       .modulate(squareDistort.scrollY(currentTime * 1.2), glitchDist * 0.12)
-      // Remove scroll to ensure full screen coverage
-      // .scrollX(params.get('scrollX') * (1 + glitchDist * 2))
-      // .scrollY(params.get('scrollY') * (1 + glitchDist * 2))
       .color(
         params.get('colorR') * (1 - pinkSplash * 0.3),
         params.get('colorG') * (1 - pinkSplash * 0.2),
         params.get('colorB') * (1 - pinkSplash * 0.1)
       )
+      .brightness(0.2) // Boost final brightness for visibility in darkness
       .blend(window.o0, framePersistence)
       .out(window.o0);
   }, []);
@@ -625,7 +623,7 @@ export const MediaPlayer: React.FC = () => {
       }
       return;
     }
-    
+
     const initHydra = async () => {
       if (!canvasRef.current || !videoRef.current) {
         console.log('Canvas or video element not ready');
@@ -633,7 +631,7 @@ export const MediaPlayer: React.FC = () => {
       }
 
       const video = videoRef.current;
-      
+
       if (video.videoWidth === 0 || video.videoHeight === 0) {
         const waitForDimensions = () => {
           if (video.videoWidth > 0 && video.videoHeight > 0) {
@@ -650,7 +648,7 @@ export const MediaPlayer: React.FC = () => {
       try {
         console.log('Initializing Hydra for ASAP Rocky track...');
         const Hydra = (await import('hydra-synth')).default;
-        
+
         const hydra = new Hydra({
           canvas: canvasRef.current,
           autoLoop: true,
@@ -677,7 +675,7 @@ export const MediaPlayer: React.FC = () => {
               // Do NOT use initImage() with video elements as it expects a URL string or Image element
               window.s0.init({ src: video });
               console.log('Initialized s0 with front camera');
-              
+
               // Initialize s1 with the second camera (back camera or alternate device)
               if (window.s1 && videoRefS1.current) {
                 const videoS1 = videoRefS1.current;
@@ -705,7 +703,7 @@ export const MediaPlayer: React.FC = () => {
                   waitForS1();
                 }
               }
-              
+
               // Use requestAnimationFrame for better timing instead of setTimeout
               requestAnimationFrame(() => {
                 try {
@@ -746,7 +744,7 @@ export const MediaPlayer: React.FC = () => {
         } catch (error) {
           console.error('Error applying initial effects:', error);
         }
-        
+
         // No need for continuous reapplication - Hydra's autoLoop handles rendering
         // The effect chain is set up once and Hydra continuously renders it
 
@@ -788,7 +786,7 @@ export const MediaPlayer: React.FC = () => {
         const currentToggle = paramsRef.current?.get('sourceToggle') || 0;
         const newToggle = currentToggle === 0 ? 1 : 0;
         paramsRef.current?.set('sourceToggle', newToggle);
-        
+
         // Clear the output first to force reapplication
         if (window.o0) {
           try {
@@ -815,7 +813,7 @@ export const MediaPlayer: React.FC = () => {
   // Sync canvas size with video dimensions
   useEffect(() => {
     if (!showCamera) return;
-    
+
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas) return;
@@ -826,25 +824,10 @@ export const MediaPlayer: React.FC = () => {
         // This ensures no downscaling and maximum sharpness
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
-        
-        // Set CSS size to fill container while maintaining aspect ratio
-        const container = canvas.parentElement;
-        if (container) {
-          const containerWidth = container.clientWidth;
-          const containerHeight = container.clientHeight;
-          const videoAspect = video.videoWidth / video.videoHeight;
-          const containerAspect = containerWidth / containerHeight;
-          
-          if (containerAspect > videoAspect) {
-            // Container is wider - fit to height
-            canvas.style.width = 'auto';
-            canvas.style.height = '100%';
-          } else {
-            // Container is taller - fit to width
-            canvas.style.width = '100%';
-            canvas.style.height = 'auto';
-          }
-        }
+
+        // Set CSS size to fill full available width and height
+        canvas.style.width = '100%';
+        canvas.style.height = '100%';
       }
     };
 
@@ -860,7 +843,7 @@ export const MediaPlayer: React.FC = () => {
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTime = parseFloat(e.target.value);
-    
+
     if (isVideoTrack) {
       const mediaVideo = mediaVideoRef.current;
       if (mediaVideo) {
@@ -950,7 +933,6 @@ export const MediaPlayer: React.FC = () => {
                 width: showCamera && !isCameraNoEffectsTrack && !cameraError ? '100%' : 0,
                 height: showCamera && !isCameraNoEffectsTrack && !cameraError ? '100%' : 0,
                 opacity: showCamera && !isCameraNoEffectsTrack && !cameraError ? 1 : 0,
-                objectFit: 'cover',
                 zIndex: 1,
               }}
             />
