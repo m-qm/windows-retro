@@ -56,6 +56,28 @@ export const InternetExplorer: React.FC<InternetExplorerProps> = ({
     };
   }, []);
 
+  // Autoplay video when component mounts or videoPath changes
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !isLocalVideo) return;
+
+    const playVideo = async () => {
+      try {
+        await video.play();
+        setIsPlaying(true);
+      } catch (error) {
+        console.log('Autoplay failed:', error);
+      }
+    };
+
+    // Wait for video to be ready
+    if (video.readyState >= 2) {
+      playVideo();
+    } else {
+      video.addEventListener('loadeddata', playVideo, { once: true });
+    }
+  }, [videoPath, isLocalVideo]);
+
   // Sync volume
   useEffect(() => {
     const video = videoRef.current;
@@ -241,30 +263,13 @@ export const InternetExplorer: React.FC<InternetExplorerProps> = ({
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
-        background: 'linear-gradient(to bottom, #2a2a2a, #1a1a1a)',
-        color: '#ffffff',
+        background: '#000000',
       }}
     >
-      {/* Title Bar */}
-      <div
-        style={{
-          padding: '12px',
-          background: '#1a1a1a',
-          borderBottom: '1px solid #000000',
-        }}
-      >
-        <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>
-          {displayUrl || 'No video loaded'}
-        </div>
-        <div style={{ fontSize: '10px', color: '#888888' }}>
-          {isLocalVideo ? 'Local Video' : 'Web Content'}
-        </div>
-      </div>
-
       {/* Main Content Area */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {/* Video/Content Display */}
-        <div style={{ flex: 1, minHeight: '200px', background: '#000000', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ flex: 1, background: '#000000', position: 'relative', overflow: 'hidden' }}>
           {isLocalVideo ? (
             <video
               ref={videoRef}
@@ -305,113 +310,7 @@ export const InternetExplorer: React.FC<InternetExplorerProps> = ({
           )}
         </div>
 
-        {isLocalVideo && (
-          <>
-            {/* Seek Bar */}
-            <div style={{ padding: '8px', background: '#1a1a1a' }}>
-              <input
-                type="range"
-                min="0"
-                max={duration || 0}
-                value={currentTime}
-                onChange={handleSeek}
-                style={{ width: '100%' }}
-              />
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', marginTop: '4px', color: '#888888' }}>
-                <span>{formatTime(currentTime)}</span>
-                <span>{formatTime(duration)}</span>
-              </div>
-            </div>
-
-            {/* Controls */}
-            <div style={{ 
-              padding: '8px', 
-              background: '#1a1a1a', 
-              borderTop: '1px solid #000000',
-              display: 'flex',
-              justifyContent: 'center',
-              gap: '8px'
-            }}>
-              <button
-                className="win-button"
-                onClick={togglePlay}
-                style={{ fontSize: '12px', padding: '4px 12px' }}
-              >
-                {isPlaying ? '⏸' : '▶'}
-              </button>
-              <button
-                className="win-button"
-                onClick={() => {
-                  const video = videoRef.current;
-                  if (video) {
-                    video.pause();
-                    video.currentTime = 0;
-                    setIsPlaying(false);
-                  }
-                }}
-                style={{ fontSize: '12px', padding: '4px 12px' }}
-              >
-                ⏹
-              </button>
-            </div>
-
-            {/* Volume Control */}
-            <div style={{ 
-              padding: '8px', 
-              background: '#1a1a1a', 
-              borderTop: '1px solid #000000', 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '8px' 
-            }}>
-              <button
-                className="win-button"
-                onClick={() => setIsMuted(!isMuted)}
-                style={{ fontSize: '12px', padding: '2px 6px' }}
-              >
-                {isMuted ? '🔇' : '🔊'}
-              </button>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.01"
-                value={volume}
-                onChange={handleVolumeChange}
-                style={{ flex: 1 }}
-              />
-              <span style={{ fontSize: '10px', minWidth: '40px', textAlign: 'right' }}>
-                {Math.round(volume * 100)}%
-              </span>
-            </div>
-          </>
-        )}
-
-        {!isLocalVideo && url && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            padding: '8px',
-            backgroundColor: '#1a1a1a',
-            borderTop: '1px solid #000000',
-            gap: '8px'
-          }}>
-            <button
-              className="win-button"
-              onClick={() => window.open(url, '_blank')}
-              style={{ fontSize: '10px', padding: '4px 8px' }}
-            >
-              Open in New Tab
-            </button>
-            <button
-              className="win-button"
-              onClick={handleOpenControls}
-              style={{ fontSize: '10px', padding: '4px 8px' }}
-            >
-              Controls
-            </button>
-          </div>
-        )}
+       
       </div>
     </div>
   );
