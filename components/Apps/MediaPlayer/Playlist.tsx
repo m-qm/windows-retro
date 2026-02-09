@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { Icon } from '@/components/Icons/IconMapper';
 
 interface Track {
   id: string;
@@ -40,9 +41,18 @@ export const Playlist: React.FC<PlaylistProps> = ({
           borderBottom: '1px solid #000000',
         }}
       >
-        <div style={{ color: '#ffffff', fontSize: '11px', fontWeight: 'bold', display: 'flex', flexDirection: 'column' }}>
-          <span>Playlist:</span>
-          <span>Hip Hop Chill</span>
+        <div
+          style={{
+            color: '#ffffff',
+            fontSize: '11px',
+            fontWeight: 'bold',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}
+        >
+          <Icon name="media-player" size={12} />
+          <span>All music</span>
         </div>
       </div>
       <div style={{ flex: 1, overflowY: 'auto', color: '#ffffff' }}>

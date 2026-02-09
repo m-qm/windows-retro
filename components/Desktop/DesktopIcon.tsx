@@ -75,11 +75,11 @@ export const DesktopIcon: React.FC<DesktopIconProps> = ({
         top: `${icon.position.y}px`,
       }}
     >
-        <div className="desktop-icon-image" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Icon name={icon.icon} size={32} />
-        </div>
-        <div className="desktop-icon-label">{icon.label}</div>
+      <div className="desktop-icon-image" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Icon name={icon.icon} size={64} />
       </div>
+      <div className="desktop-icon-label">{icon.label}</div>
+    </div>
   );
 };
 

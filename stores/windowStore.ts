@@ -83,8 +83,8 @@ const defaultWindowSize = {
 };
 
 const defaultMediaPlayerSize = {
-  width: 500,
-  height: 400,
+  width: 800,
+  height: 560,
 };
 
 const defaultBrowserSize = {
@@ -114,42 +114,42 @@ export const useWindowStore = create<WindowStore>((set, get) => ({
       label: 'My Pictures',
       icon: 'my-pictures',
       windowType: 'photo-viewer',
-      position: { x: 20, y: 120 },
+      position: { x: 20, y: 140 },
     },
     {
       id: 'icon-my-videos',
       label: 'My Videos',
       icon: 'my-videos',
       windowType: 'video-player',
-      position: { x: 20, y: 220 },
+      position: { x: 20, y: 260 },
     },
     {
       id: 'icon-my-computer',
       label: 'My Computer',
       icon: 'my-computer',
       windowType: 'my-computer',
-      position: { x: 20, y: 320 },
+      position: { x: 20, y: 380 },
     },
     {
       id: 'icon-notepad',
       label: 'Notepad',
       icon: 'notepad',
       windowType: 'notepad',
-      position: { x: 20, y: 420 },
+      position: { x: 180, y: 20 },
     },
     {
       id: 'icon-recycle-bin',
       label: 'Recycle Bin',
       icon: 'recycle-bin',
       windowType: 'my-computer',
-      position: { x: 20, y: 520 },
+      position: { x: 180, y: 140 },
     },
     {
       id: 'icon-internet-explorer',
       label: 'Internet Explorer',
       icon: 'internet-explorer',
       windowType: 'internet-explorer',
-      position: { x: 20, y: 620 },
+      position: { x: 180, y: 260 },
     },
   ],
   mediaPlayerState: {
@@ -161,29 +161,22 @@ export const useWindowStore = create<WindowStore>((set, get) => ({
     isRepeating: false,
     playlist: [
       {
-        id: 'track1',
-        title: 'A$AP Rocky - Wassup',
-        artist: 'A$AP Rocky',
-        url: '/audio/04. A$AP Rocky - Wassup.mp3',
-      },
-      {
-        id: 'track2',
-        title: '01 - I Smoked Away My Brain',
-        artist: 'I\'m God x Demons Mashup',
-        url: '/audio/01 - I Smoked Away My Brain.mp3',
-      },
-      
-      {
         id: 'track3',
-        title: 'Visages',
-        artist: 'The Hidden Valley', 
-        url: '/audio/Visajes The Hidden Valley.mp3',
+        title: '03 Track 3',
+        artist: 'Yamborgini High',
+        url: '/audio/03 Track 3.mp3',
       },
       {
-        id: 'video1',
-        title: 'Video',
-        artist: 'Video File',
-        url: '/videos/1_compressed.mp4',
+        id: 'track4',
+        title: '04 Track 4',
+        artist: "I smoked away my brain + I’m God",
+        url: '/audio/04 Track 4.mp3',
+      },
+      {
+        id: 'track5',
+        title: '05 Track 5',
+        artist: 'Massive Attack - Blue Ceiling',
+        url: '/audio/Visajes The Hidden Valley.mp3',
       },
     ],
   },
@@ -192,7 +185,7 @@ export const useWindowStore = create<WindowStore>((set, get) => ({
     const state = get();
     // For Internet Explorer, allow multiple windows with different URLs
     const existingWindow = type === 'internet-explorer' && url
-      ? null // Always create new window for popups
+      ? null // Always create new window when opening with URL
       : state.windows.find(w => w.type === type && !w.isMinimized);
     
     if (existingWindow) {

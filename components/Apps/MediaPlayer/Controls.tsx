@@ -51,7 +51,7 @@ export const Controls: React.FC<ControlsProps> = ({
         className="win-button"
         onClick={isPlaying ? onPause : onPlay}
         title={isPlaying ? 'Pause' : 'Play'}
-        style={{ padding: '4px 12px', fontSize: '14px' }}
+        style={{ padding: '5px 14px', fontSize: '16px' }}
       >
         {isPlaying ? '⏸' : '▶'}
       </button>

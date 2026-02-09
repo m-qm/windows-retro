@@ -44,8 +44,7 @@ export const Desktop: React.FC = () => {
   const handleIconDoubleClick = (iconId: string, windowType: string) => {
     const icon = desktopIcons.find((i) => i.id === iconId);
     if (icon) {
-      // Set default URL for Internet Explorer
-      const defaultUrl = icon.windowType === 'internet-explorer' 
+      const defaultUrl = icon.windowType === 'internet-explorer'
         ? 'https://www.youtube.com/watch?v=LXOr65OZ-Ac'
         : undefined;
       openWindow(icon.windowType, icon.label, icon.icon, defaultUrl);

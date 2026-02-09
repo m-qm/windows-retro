@@ -78,6 +78,7 @@ export const StartMenu: React.FC<StartMenuProps> = ({ onClose }) => {
         >
           Internet Explorer
         </div>
+
         <div className="win-start-menu-separator" style={{ height: '1px', background: '#808080', margin: '2px 0', borderTop: '1px solid #ffffff' }} />
         <div
           className="win-start-menu-item"

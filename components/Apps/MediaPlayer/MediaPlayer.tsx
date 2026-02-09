@@ -95,12 +95,12 @@ export const MediaPlayer: React.FC = () => {
       url = '';
     }
 
-    // Track 1: ASAP Rocky - Camera with surrealGlitch effects
-    if (title.includes('A$AP Rocky') || title.includes('Wassup') || (url && url.includes('Wassup'))) {
+    // Track 1 (03 Track 3) - Camera with surrealGlitch effects
+    if (title.includes('03 Track 3') || (url && url.includes('03 Track 3')) || title.includes('A$AP Rocky') || title.includes('Wassup') || (url && url.includes('Wassup'))) {
       return 'camera-surreal-glitch';
     }
-    // Track 2: I Smoked Away My Brain - Camera with NO effects (raw feed)
-    if (title.includes('I Smoked Away My Brain') || (url && url.includes('I Smoked Away My Brain'))) {
+    // Track 2 (04 Track 4) - Camera with NO effects (raw feed)
+    if (title.includes('04 Track 4') || (url && url.includes('04 Track 4')) || title.includes('I Smoked Away My Brain') || (url && url.includes('I Smoked Away My Brain'))) {
       return 'camera-no-effects';
     }
     // Track 3: A1 Traca - Camera with warm reflective effects
