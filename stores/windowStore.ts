@@ -174,9 +174,15 @@ export const useWindowStore = create<WindowStore>((set, get) => ({
       },
       {
         id: 'track5',
-        title: '05 Track 5',
-        artist: 'Massive Attack - Blue Ceiling',
-        url: '/audio/Visajes The Hidden Valley.mp3',
+        title: '05 Track 05',
+        artist: 'The Hidden Valley',
+        url: '/audio/05 Track 05.mp3',
+      },
+      {
+        id: 'track6',
+        title: '06 Track 06',
+        artist: 'Video',
+        url: '/videos/1_compressed.mp4',
       },
     ],
   },

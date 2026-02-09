@@ -103,8 +103,8 @@ export const MediaPlayer: React.FC = () => {
     if (title.includes('04 Track 4') || (url && url.includes('04 Track 4')) || title.includes('I Smoked Away My Brain') || (url && url.includes('I Smoked Away My Brain'))) {
       return 'camera-no-effects';
     }
-    // Track 3: A1 Traca - Camera with warm reflective effects
-    if (title.includes('Visages') || title.includes('The Hidden Valley') || (url && url.includes('Visajes The Hidden Valley.mp3'))) {
+    // Track 3 (05 Track 05) - Camera with warm reflective effects
+    if (title.includes('05 Track 05') || (url && url.includes('05 Track 05')) || title.includes('Visages') || title.includes('The Hidden Valley') || (url && url.includes('Visajes The Hidden Valley'))) {
       return 'camera-warm-reflective';
     }
     // Video file
