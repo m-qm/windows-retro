@@ -1,3 +1,4 @@
-# Ignore large media files - host these separately
-public/videos/1.mov
-public/audio/*.flac
+# Ignore large media files - host these separately (Vercel 100 MB file limit)
+# public/videos/1.mov
+# public/videos/3.mov
+# public/audio/*.flac

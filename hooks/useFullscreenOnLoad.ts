@@ -2,18 +2,24 @@
 
 import { useEffect, useRef } from 'react';
 
+type FullscreenElement = Element & {
+  requestFullscreen?: () => Promise<void>;
+  webkitRequestFullscreen?: () => void;
+  msRequestFullscreen?: () => void;
+};
+
 /**
  * Request fullscreen on the document element.
  * Uses standard and vendor-prefixed APIs for broad support.
  */
 export function requestFullscreen(): void {
-  const el = document.documentElement;
-  if (el.requestFullscreen) {
-    el.requestFullscreen();
-  } else if ((el as HTMLDocument & { webkitRequestFullscreen?: () => void }).webkitRequestFullscreen) {
-    (el as HTMLDocument & { webkitRequestFullscreen: () => void }).webkitRequestFullscreen();
-  } else if ((el as HTMLDocument & { msRequestFullscreen?: () => void }).msRequestFullscreen) {
-    (el as HTMLDocument & { msRequestFullscreen: () => void }).msRequestFullscreen();
+  const el = document.documentElement as FullscreenElement;
+  if (typeof el.requestFullscreen === 'function') {
+    el.requestFullscreen().catch(() => {});
+  } else if (typeof el.webkitRequestFullscreen === 'function') {
+    el.webkitRequestFullscreen();
+  } else if (typeof el.msRequestFullscreen === 'function') {
+    el.msRequestFullscreen();
   }
 }
 
