@@ -24,6 +24,12 @@ declare global {
   }
 }
 
+// play() can throw AbortError when interrupted by a new load (e.g. track/camera switch) - ignore it
+function catchPlayError(e: unknown) {
+  if (e instanceof Error && e.name === 'AbortError') return;
+  console.error(e);
+}
+
 export const MediaPlayer: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -42,6 +48,7 @@ export const MediaPlayer: React.FC = () => {
   const [visualizerEnabled, setVisualizerEnabled] = useState(true);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
+  const [cameraSwitching, setCameraSwitching] = useState(false);
 
   const mediaPlayerState = useWindowStore((state) => state.mediaPlayerState);
   const {
@@ -133,10 +140,10 @@ export const MediaPlayer: React.FC = () => {
       if (isRepeating) {
         if (isVideoTrack && mediaVideo) {
           mediaVideo.currentTime = 0;
-          mediaVideo.play();
+          mediaVideo.play().catch(catchPlayError);
         } else if (audio) {
           audio.currentTime = 0;
-          audio.play();
+          audio.play().catch(catchPlayError);
         }
       } else {
         useWindowStore.getState().nextTrack();
@@ -274,7 +281,7 @@ export const MediaPlayer: React.FC = () => {
           mediaVideo.src = trackUrl;
           mediaVideo.load();
         }
-        mediaVideo.play().catch(console.error);
+        mediaVideo.play().catch(catchPlayError);
         // Pause audio
         if (audio) audio.pause();
       } else if (audio) {
@@ -285,7 +292,7 @@ export const MediaPlayer: React.FC = () => {
             audio.load();
           }
         }
-        audio.play().catch(console.error);
+        audio.play().catch(catchPlayError);
         // Pause video
         if (mediaVideo) mediaVideo.pause();
       }
@@ -375,7 +382,7 @@ export const MediaPlayer: React.FC = () => {
           console.log('Camera stream s1 obtained:', streamS1);
           streamRefS1.current = streamS1;
           videoS1.srcObject = streamS1;
-          videoS1.play().catch(console.error);
+          videoS1.play().catch(catchPlayError);
         } catch (s1Error: any) {
           console.warn('Could not access second camera (s1), will use same camera:', s1Error);
           // If back camera fails, try to enumerate devices and get a different one
@@ -411,7 +418,7 @@ export const MediaPlayer: React.FC = () => {
                 console.log('Camera stream s1 obtained from alternate device:', streamS1);
                 streamRefS1.current = streamS1;
                 videoS1.srcObject = streamS1;
-                videoS1.play().catch(console.error);
+                videoS1.play().catch(catchPlayError);
               }
             }
           } catch (enumError) {
@@ -437,7 +444,9 @@ export const MediaPlayer: React.FC = () => {
                   resolve();
                 })
                 .catch((err) => {
-                  console.error('Error playing video:', err);
+                  if (err instanceof Error && err.name !== 'AbortError') {
+                    console.error('Error playing video:', err);
+                  }
                   setCameraReady(true);
                   resolve();
                 });
@@ -497,6 +506,53 @@ export const MediaPlayer: React.FC = () => {
       setCameraReady(false);
     };
   }, [showCamera]);
+
+  const switchCamera = useCallback(async () => {
+    const video = videoRef.current;
+    const stream = streamRef.current;
+    if (!video || !stream || !navigator.mediaDevices?.enumerateDevices) return;
+
+    setCameraSwitching(true);
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter((d) => d.kind === 'videoinput');
+      if (videoDevices.length === 0) return;
+
+      const currentId = stream.getVideoTracks()[0]?.getSettings().deviceId;
+      const currentIndex = videoDevices.findIndex((d) => d.deviceId === currentId);
+      const nextIndex = (currentIndex + 1) % videoDevices.length;
+      const nextDevice = videoDevices[nextIndex];
+
+      stream.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          deviceId: nextDevice.deviceId ? { exact: nextDevice.deviceId } : undefined,
+          width: { ideal: 1920, min: 1280 },
+          height: { ideal: 1080, min: 720 },
+        },
+        audio: false,
+      });
+
+      streamRef.current = newStream;
+      video.srcObject = newStream;
+      await video.play().catch(catchPlayError);
+
+      if (window.s0 && video.readyState >= 2) {
+        try {
+          window.s0.init({ src: video });
+        } catch (e) {
+          console.warn('Hydra s0 re-init after camera switch:', e);
+        }
+      }
+    } catch (err) {
+      console.error('Switch camera failed:', err);
+      setCameraError(err instanceof Error ? err.message : 'Failed to switch camera');
+    } finally {
+      setCameraSwitching(false);
+    }
+  }, []);
 
   // Apply warm reflective effect (for track 3)
   const applyWarmReflective = useCallback(() => {
@@ -969,7 +1025,6 @@ export const MediaPlayer: React.FC = () => {
                 ) : (
                   // Container for positioning - video and canvas are rendered above
                   <div style={{ height: '100%', width: '100%', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {/* Video and canvas are rendered above, outside conditionals */}
                   </div>
                 )}
               </>
@@ -1073,17 +1128,41 @@ export const MediaPlayer: React.FC = () => {
           </div>
         </div>
 
-        {/* Playlist - always visible */}
-        <Playlist
-          tracks={playlist}
-          currentTrackIndex={currentTrack}
-          onTrackSelect={(index) => {
-            setCurrentTrack(index);
-            if (audioRef.current) {
-              audioRef.current.currentTime = 0;
-            }
-          }}
-        />
+        {/* Playlist column - button at end of column when camera active */}
+        <div style={{ display: 'flex', flexDirection: 'column', width: '200px', minWidth: '200px', overflow: 'hidden' }}>
+          <Playlist
+            tracks={playlist}
+            currentTrackIndex={currentTrack}
+            onTrackSelect={(index) => {
+              setCurrentTrack(index);
+              if (audioRef.current) {
+                audioRef.current.currentTime = 0;
+              }
+            }}
+          />
+          {showCamera && (
+            <div style={{ marginTop: 'auto', padding: '6px 8px', background: '#2a2a2a', borderTop: '1px solid #000000', display: 'flex', justifyContent: 'center', flexShrink: 0 }}>
+              <button
+                type="button"
+                className="win-button"
+                onClick={switchCamera}
+                disabled={cameraSwitching}
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  padding: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '18px',
+                }}
+                title="Switch camera"
+              >
+                {cameraSwitching ? '…' : '📷'}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Hidden Audio Element */}

@@ -27,7 +27,9 @@ export const Playlist: React.FC<PlaylistProps> = ({
     <div
       style={{
         width: '200px',
-        minWidth: '200px', // Prevent shrinking
+        minWidth: '200px',
+        flex: 1,
+        minHeight: 0,
         background: '#2a2a2a',
         borderLeft: '1px solid #000000',
         display: 'flex',

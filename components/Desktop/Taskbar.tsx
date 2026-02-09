@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useWindowStore } from '@/stores/windowStore';
 import { StartMenu } from './StartMenu';
 import { Icon } from '@/components/Icons/IconMapper';
+import { requestFullscreen } from '@/hooks/useFullscreenOnLoad';
 
 export const Taskbar: React.FC = () => {
   const [showStartMenu, setShowStartMenu] = useState(false);
@@ -95,6 +96,7 @@ export const Taskbar: React.FC = () => {
         style={{
           display: 'flex',
           alignItems: 'center',
+          gap: '6px',
           padding: '0 8px',
           borderLeft: '1px solid #808080',
           borderRight: '1px solid #ffffff',
@@ -104,6 +106,15 @@ export const Taskbar: React.FC = () => {
           fontSize: '11px',
         }}
       >
+        <button
+          type="button"
+          className="win-button"
+          onClick={() => requestFullscreen()}
+          style={{ padding: '2px 8px', fontSize: '11px' }}
+          title="Full screen"
+        >
+          ⛶ Full screen
+        </button>
         {formatTime(currentTime)}
       </div>
     </div>

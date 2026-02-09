@@ -22,7 +22,7 @@ export const WindowControls: React.FC<WindowControlsProps> = ({
           className="win-control"
           onClick={(e) => {
             e.stopPropagation();
-            onMinimize();
+            // onMinimize();
           }}
           title="Minimize"
         >

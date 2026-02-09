@@ -83,8 +83,8 @@ const defaultWindowSize = {
 };
 
 const defaultMediaPlayerSize = {
-  width: 800,
-  height: 560,
+  width: 960,
+  height: 640,
 };
 
 const defaultBrowserSize = {
@@ -92,10 +92,15 @@ const defaultBrowserSize = {
   height: 700,
 };
 
-const getDefaultPosition = (index: number) => ({
-  x: 50 + (index % 3) * 50,
-  y: 50 + Math.floor(index / 3) * 50,
-});
+const getDefaultPosition = (index: number, type?: WindowType) => {
+  if (type === 'media-player') {
+    return { x: 420, y: 40 };
+  }
+  return {
+    x: 50 + (index % 3) * 50,
+    y: 50 + Math.floor(index / 3) * 50,
+  };
+};
 
 export const useWindowStore = create<WindowStore>((set, get) => ({
   windows: [],
@@ -207,7 +212,7 @@ export const useWindowStore = create<WindowStore>((set, get) => ({
     } else if (type === 'internet-explorer') {
       size = defaultBrowserSize;
     }
-    const position = getDefaultPosition(windowCount);
+    const position = getDefaultPosition(windowCount, type);
 
     const newWindow: WindowState = {
       id: `window-${Date.now()}-${Math.random()}`,
