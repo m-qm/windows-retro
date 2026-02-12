@@ -86,10 +86,11 @@ export const MediaPlayer: React.FC = () => {
     return track;
   }, [playlist, currentTrack]);
 
-  // Determine track type - memoized to prevent infinite loops
+  // Determine track type - use track id first to avoid wrong effect when titles/URLs overlap
   const trackType = useMemo(() => {
     if (!currentTrackData) return 'visualizer';
 
+    const id = currentTrackData.id;
     const title = String(currentTrackData.title || '');
 
     // Safely get URL - ensure it's always a string and never an object
@@ -97,30 +98,29 @@ export const MediaPlayer: React.FC = () => {
     if (typeof currentTrackData.url === 'string') {
       url = currentTrackData.url;
     } else {
-      // If it's not a string, don't use it - this prevents video elements from being used
-      console.warn('Track URL is not a string, skipping URL-based detection:', typeof currentTrackData.url);
       url = '';
     }
 
-    // Track 1 (03 Track 3) - Camera with surrealGlitch effects
+    // Match by track id first (reliable)
+    if (id === 'track3') return 'camera-surreal-glitch';
+    if (id === 'track4') return 'camera-no-effects';
+    if (id === 'track5') return 'camera-warm-reflective';
+
+    // Fallback by title/URL for any other tracks
     if (title.includes('03 Track 3') || (url && url.includes('03 Track 3')) || title.includes('A$AP Rocky') || title.includes('Wassup') || (url && url.includes('Wassup'))) {
       return 'camera-surreal-glitch';
     }
-    // Track 2 (04 Track 4) - Camera with NO effects (raw feed)
     if (title.includes('04 Track 4') || (url && url.includes('04 Track 4')) || title.includes('I Smoked Away My Brain') || (url && url.includes('I Smoked Away My Brain'))) {
       return 'camera-no-effects';
     }
-    // Track 3 (05 Track 05) - Camera with warm reflective effects
     if (title.includes('05 Track 05') || (url && url.includes('05 Track 05')) || title.includes('Visages') || title.includes('The Hidden Valley') || (url && url.includes('Visajes The Hidden Valley'))) {
       return 'camera-warm-reflective';
     }
-    // Video file
     if (url && (url.includes('.mp4') || url.includes('.mov') || url.includes('.webm'))) {
       return 'video';
     }
-    // Others: Regular visualizer
     return 'visualizer';
-  }, [currentTrack, currentTrackData?.id]);
+  }, [currentTrack, currentTrackData]);
 
   const isASAPRockyTrack = trackType === 'camera-surreal-glitch';
   const isCameraNoEffectsTrack = trackType === 'camera-no-effects';
@@ -943,12 +943,7 @@ export const MediaPlayer: React.FC = () => {
           borderBottom: '1px solid #000000',
         }}
       >
-        <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>
-          {currentTrackData?.title || 'No track selected'}
-        </div>
-        <div style={{ fontSize: '10px', color: '#888888' }}>
-          {currentTrackData?.artist || 'Unknown Artist'}
-        </div>
+      
       </div>
 
       {/* Main Content Area */}

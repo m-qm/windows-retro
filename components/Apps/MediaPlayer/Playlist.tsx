@@ -63,27 +63,41 @@ export const Playlist: React.FC<PlaylistProps> = ({
             key={track.id}
             onClick={() => onTrackSelect(index)}
             style={{
-              padding: '4px 8px',
+              display: 'flex',
+              alignItems: 'center',
+              minHeight: '44px',
+              padding: '0 10px',
               cursor: 'pointer',
               backgroundColor: index === currentTrackIndex ? '#000080' : 'transparent',
-              color: index === currentTrackIndex ? '#ffffff' : '#cccccc',
-              fontSize: '11px',
+              color: index === currentTrackIndex ? '#ffffff' : '#b0b0b0',
+              fontSize: '12px',
+              borderLeft: index === currentTrackIndex ? '3px solid #ffcc00' : '3px solid transparent',
+              transition: 'background-color 0.15s ease, color 0.15s ease',
             }}
             onMouseEnter={(e) => {
               if (index !== currentTrackIndex) {
-                e.currentTarget.style.backgroundColor = '#404040';
+                e.currentTarget.style.backgroundColor = '#3a3a3a';
+                e.currentTarget.style.color = '#e0e0e0';
               }
             }}
             onMouseLeave={(e) => {
               if (index !== currentTrackIndex) {
                 e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.color = '#b0b0b0';
               }
             }}
           >
-            <div style={{ fontWeight: index === currentTrackIndex ? 'bold' : 'normal' }}>
+            <span
+              style={{
+                fontWeight: index === currentTrackIndex ? 600 : 400,
+                letterSpacing: '0.02em',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
               {track.title}
-            </div>
-            <div style={{ fontSize: '10px', color: '#888888' }}>{track.artist}</div>
+            </span>
           </div>
         ))}
       </div>

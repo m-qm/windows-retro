@@ -183,12 +183,6 @@ export const useWindowStore = create<WindowStore>((set, get) => ({
         artist: 'The Hidden Valley',
         url: '/audio/05 Track 05.mp3',
       },
-      {
-        id: 'track6',
-        title: '06 Track 06',
-        artist: 'Video',
-        url: '/videos/1_compressed.mp4',
-      },
     ],
   },
 
@@ -212,7 +206,16 @@ export const useWindowStore = create<WindowStore>((set, get) => ({
     } else if (type === 'internet-explorer') {
       size = defaultBrowserSize;
     }
-    const position = getDefaultPosition(windowCount, type);
+
+    // Center media player a bit more by default if we know the viewport size
+    let position = getDefaultPosition(windowCount, type);
+    if (type === 'media-player' && typeof window !== 'undefined') {
+      const viewportWidth = window.innerWidth || 0;
+      const viewportHeight = window.innerHeight || 0;
+      const centeredX = Math.max(0, Math.round((viewportWidth - size.width) / 2));
+      const centeredY = Math.max(0, Math.round((viewportHeight - size.height) / 2) - 40); // slightly higher than true center
+      position = { x: centeredX, y: centeredY };
+    }
 
     const newWindow: WindowState = {
       id: `window-${Date.now()}-${Math.random()}`,
