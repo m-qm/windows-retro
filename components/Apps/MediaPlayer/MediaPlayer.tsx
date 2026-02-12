@@ -113,7 +113,7 @@ export const MediaPlayer: React.FC = () => {
     if (title.includes('04 Track 4') || (url && url.includes('04 Track 4')) || title.includes('I Smoked Away My Brain') || (url && url.includes('I Smoked Away My Brain'))) {
       return 'camera-no-effects';
     }
-    if (title.includes('05 Track 05') || (url && url.includes('05 Track 05')) || title.includes('Visages') || title.includes('The Hidden Valley') || (url && url.includes('Visajes The Hidden Valley'))) {
+    if (title.includes('05 Track 5') || (url && url.includes('05 Track 5')) || title.includes('The Hidden Valley') ) {
       return 'camera-warm-reflective';
     }
     if (url && (url.includes('.mp4') || url.includes('.mov') || url.includes('.webm'))) {
